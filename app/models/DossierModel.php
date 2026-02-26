@@ -19,10 +19,10 @@ function getAllDossiers(string $q = ''): array
                 p.prenom,
                 p.dateNaissance,
                 p.genre
-            FROM DOSSIER_PATIENT d
-            INNER JOIN PATIENT p ON p.idPatient = d.idPatient
-            LEFT JOIN GESTION_LIT gl ON gl.idDossier = d.idDossier
-            LEFT JOIN LIT l ON l.idLit = gl.idLit
+            FROM dossier_patient d
+            INNER JOIN patient p ON p.idPatient = d.idPatient
+            LEFT JOIN gestion_lit gl ON gl.idDossier = d.idDossier
+            LEFT JOIN lit l ON l.idLit = gl.idLit
             WHERE 1=1";
 
     $params = [];
@@ -49,10 +49,10 @@ function getDossierById(int $idDossier): ?array
                 l.numeroLit,
                 l.etatLit,
                 p.nom, p.prenom, p.dateNaissance, p.adresse, p.telephone, p.email, p.genre, p.numeroCarteVitale, p.mutuelle
-            FROM DOSSIER_PATIENT d
-            INNER JOIN PATIENT p ON p.idPatient = d.idPatient
-            LEFT JOIN GESTION_LIT gl ON gl.idDossier = d.idDossier
-            LEFT JOIN LIT l ON l.idLit = gl.idLit
+            FROM dossier_patient d
+            INNER JOIN patient p ON p.idPatient = d.idPatient
+            LEFT JOIN gestion_lit gl ON gl.idDossier = d.idDossier
+            LEFT JOIN lit l ON l.idLit = gl.idLit
             WHERE d.idDossier = :id
             LIMIT 1";
 
@@ -71,8 +71,8 @@ function getLitForDossier(int $idDossier): ?array
 {
     $stmt = db()->prepare(
         "SELECT l.idLit, l.numeroLit, l.etatLit
-         FROM GESTION_LIT gl
-         INNER JOIN LIT l ON l.idLit = gl.idLit
+         FROM gestion_lit gl
+         INNER JOIN lit l ON l.idLit = gl.idLit
          WHERE gl.idDossier = :id
          LIMIT 1"
     );
@@ -84,7 +84,7 @@ function getLitForDossier(int $idDossier): ?array
 
 function createDossier(int $idPatient, array $data): int
 {
-    $sql = "INSERT INTO DOSSIER_PATIENT
+    $sql = "INSERT INTO dossier_patient
         (idPatient, idHopital, dateCreation, dateAdmission, dateSortie,
          historiqueMedical, antecedant, etat_entree, diagnostic, examen, traitements,
          statut, niveau, delaiPriseCharge, idTransfert)
@@ -136,7 +136,7 @@ function createPatientAndDossier(array $patient, array $dossier): int
 
 function updateDossier($idDossier, $dateAdmission, $dateSortie, $historiqueMedical, $antecedant, $etat_entree, $diagnostic, $examen, $traitements, $statut, $niveau, $delai)
 {
-    $sql = "UPDATE DOSSIER_PATIENT SET
+    $sql = "UPDATE dossier_patient SET
                 dateAdmission = :dateAdmission,
                 dateSortie = :dateSortie,
                 historiqueMedical = :historiqueMedical,
