@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 
 function getServiceIdByPersonnel(int $idPersonnel): ?int
 {
-    $stmt = db()->prepare("SELECT idService FROM PERSONNEL WHERE idPersonnel = ? LIMIT 1");
+    $stmt = db()->prepare("SELECT idService FROM personnel WHERE idPersonnel = ? LIMIT 1");
     $stmt->execute([$idPersonnel]);
     $row = $stmt->fetch();
 
@@ -14,7 +14,7 @@ function getServiceIdByPersonnel(int $idPersonnel): ?int
 
 function getInfirmierIdByPersonnel(int $idPersonnel): ?int
 {
-    $stmt = db()->prepare("SELECT idInfirmier FROM INFIRMIER WHERE idPersonnel = ? LIMIT 1");
+    $stmt = db()->prepare("SELECT idInfirmier FROM infirmier WHERE idPersonnel = ? LIMIT 1");
     $stmt->execute([$idPersonnel]);
     $row = $stmt->fetch();
 
@@ -25,7 +25,7 @@ function getLitStatsByService(int $idService): array
 {
     $stmt = db()->prepare("
         SELECT etatLit, COUNT(*) AS nb
-        FROM LIT
+        FROM lit
         WHERE idService = ?
         GROUP BY etatLit
     ");
@@ -38,7 +38,7 @@ function getLitsByService(int $idService): array
 {
     $stmt = db()->prepare("
         SELECT idLit, numeroLit, etatLit
-        FROM LIT
+        FROM lit
         WHERE idService = ?
         ORDER BY numeroLit
     ");
@@ -51,7 +51,7 @@ function getAvailableLits(int $idService): array
 {
     $stmt = db()->prepare("
         SELECT idLit, numeroLit
-        FROM LIT
+        FROM lit
         WHERE idService = ?
           AND etatLit = 'disponible'
         ORDER BY numeroLit
@@ -74,7 +74,7 @@ function reserveLitForDossier(
 
     try {
         // 1) Vérifier l'état du lit
-        $check = $pdo->prepare("SELECT etatLit FROM LIT WHERE idLit = ? LIMIT 1");
+        $check = $pdo->prepare("SELECT etatLit FROM lit WHERE idLit = ? LIMIT 1");
         $check->execute([$idLit]);
         $row = $check->fetch();
 
@@ -86,7 +86,7 @@ function reserveLitForDossier(
         }
 
         // 1bis) Vérifier que le dossier n'a pas déjà un lit
-        $checkDossier = $pdo->prepare("SELECT COUNT(*) AS nb FROM GESTION_LIT WHERE idDossier = ?");
+        $checkDossier = $pdo->prepare("SELECT COUNT(*) AS nb FROM gestion_lit WHERE idDossier = ?");
         $checkDossier->execute([$idDossier]);
         $nb = (int)($checkDossier->fetchColumn() ?: 0);
         if ($nb > 0) {
@@ -95,18 +95,18 @@ function reserveLitForDossier(
 
         // 2) Insérer la réservation
         $ins = $pdo->prepare("
-            INSERT INTO RESERVATION_LIT (idLit, idInfirmier, dateDebutReservation, dateFinReservation)
+            INSERT INTO reservation_lit (idLit, idInfirmier, dateDebutReservation, dateFinReservation)
             VALUES (?, ?, ?, ?)
         ");
         $ins->execute([$idLit, $idInfirmier, $dateDebut, $dateFin]);
 
         // 3) Mettre à jour l'état du lit
-        $upd = $pdo->prepare("UPDATE LIT SET etatLit = 'reserve' WHERE idLit = ?");
+        $upd = $pdo->prepare("UPDATE lit SET etatLit = 'reserve' WHERE idLit = ?");
         $upd->execute([$idLit]);
 
         // 4) Lier le lit au dossier
         $link = $pdo->prepare("
-            INSERT INTO GESTION_LIT (idDossier, idLit)
+            INSERT INTO gestion_lit (idDossier, idLit)
             VALUES (?, ?)
         ");
         $link->execute([$idDossier, $idLit]);
