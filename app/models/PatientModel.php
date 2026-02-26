@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 
 function createPatient(array $data): int
 {
-    $sql = "INSERT INTO PATIENT
+    $sql = "INSERT INTO patient
         (nom, prenom, dateNaissance, adresse, telephone, email, genre, numeroCarteVitale, mutuelle)
         VALUES
         (:nom, :prenom, :dateNaissance, :adresse, :telephone, :email, :genre, :numeroCarteVitale, :mutuelle)";
@@ -25,6 +25,7 @@ function createPatient(array $data): int
 
     return (int) db()->lastInsertId();
 }
+
 function updatePatient($idPatient, $nom, $prenom, $dateNaissance, $adresse, $telephone, $email, $genre, $numeroCarteVitale, $mutuelle)
 {
     // حماية أساسية
@@ -42,7 +43,7 @@ function updatePatient($idPatient, $nom, $prenom, $dateNaissance, $adresse, $tel
         $genre = "Homme";
     }
 
-    $sql = "UPDATE PATIENT SET
+    $sql = "UPDATE patient SET
                 nom = :nom,
                 prenom = :prenom,
                 dateNaissance = :dateNaissance,
