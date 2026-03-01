@@ -1,52 +1,93 @@
 <?php
 declare(strict_types=1);
 
+/*
+  ==============================
+  DOSSIER CONTROLLER (MVC)
+  ==============================
+  - Le contrôleur ne contient pas de SQL.
+  - Il récupère les données (GET/POST), vérifie, puis appelle le Model.
+  - Ensuite il charge la View.
+*/
+
+require_once APP_PATH . '/includes/auth_guard.php';
+
 require_once __DIR__ . '/../models/DossierModel.php';
 require_once __DIR__ . '/../models/PatientModel.php';
 
+// Actions médecin
+require_once __DIR__ . '/../models/ExamenModel.php';
+require_once __DIR__ . '/../models/TransfertModel.php';
+
+function abort(int $status, string $message): void
+{
+    http_response_code($status);
+    echo $message;
+}
+
+function requirePost(): bool
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        abort(405, "Méthode non autorisée.");
+        return false;
+    }
+    return true;
+}
+
+function getIntParam(string $key, int $default = 0): int
+{
+    return (int)($_REQUEST[$key] ?? $default);
+}
+
+function getStrParam(string $key, string $default = ''): string
+{
+    return trim((string)($_REQUEST[$key] ?? $default));
+}
+
+/**
+ * Liste des dossiers (avec recherche simple via ?q=...)
+ */
 function dossiers_list(): void
 {
-    $q = trim($_GET['q'] ?? '');
+    $q = getStrParam('q', '');
     $dossiers = getAllDossiers($q);
-
     require __DIR__ . '/../views/dossiers/liste.php';
 }
 
+/**
+ * Détail d'un dossier (infirmier) via ?id=...
+ */
 function dossier_detail(): void
 {
-    $id = (int)($_GET['id'] ?? 0);
+    $id = getIntParam('id', 0);
     if ($id <= 0) {
-        http_response_code(400);
-        echo "ID dossier invalide";
+        abort(400, "ID dossier invalide");
         return;
     }
 
     $dossier = getDossierById($id);
     if (!$dossier) {
-        http_response_code(404);
-        echo "Dossier introuvable";
+        abort(404, "Dossier introuvable");
         return;
     }
 
     require __DIR__ . '/../views/dossiers/detail_infirmier.php';
 }
 
-function dossier_edit_form()
+/**
+ * Formulaire d'édition (GET ?id=...)
+ */
+function dossier_edit_form(): void
 {
-    if (!isset($_GET['id'])) {
-        echo "ID dossier manquant";
-        return;
-    }
-
-    $id = (int) $_GET['id'];
+    $id = getIntParam('id', 0);
     if ($id <= 0) {
-        echo "ID dossier invalide";
+        abort(400, "ID dossier invalide");
         return;
     }
 
     $dossier = getDossierById($id);
     if (!$dossier) {
-        echo "Dossier introuvable";
+        abort(404, "Dossier introuvable");
         return;
     }
 
@@ -54,143 +95,157 @@ function dossier_edit_form()
     require __DIR__ . '/../views/dossiers/edit.php';
 }
 
-function dossier_update()
+/**
+ * Traitement de la mise à jour (POST)
+ */
+function dossier_update(): void
 {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        echo "Accès interdit";
+    if (!requirePost()) {
         return;
     }
 
-    if (
-        (!isset($_POST['idDossier'])) ||
-        (!isset($_POST['idPatient'])) ||
-        (!isset($_POST['nom'])) ||
-        (!isset($_POST['prenom'])) ||
-        (!isset($_POST['dateNaissance']))
-    ) {
-        echo "Formulaire incomplet";
-        return;
-    }
-
-    $idDossier = (int) $_POST['idDossier'];
-    $idPatient = (int) $_POST['idPatient'];
+    $idDossier = getIntParam('idDossier', 0);
+    $idPatient = getIntParam('idPatient', 0);
 
     if ($idDossier <= 0 || $idPatient <= 0) {
-        echo "IDs invalides";
+        abort(400, "IDs invalides");
         return;
     }
 
-    // ---------- Patient ----------
-    $nom = trim($_POST['nom'] ?? '');
-    $prenom = trim($_POST['prenom'] ?? '');
-    $dateNaissance = trim($_POST['dateNaissance'] ?? '');
+    // Champs obligatoires patient
+    $nom = getStrParam('nom');
+    $prenom = getStrParam('prenom');
+    $dateNaissance = getStrParam('dateNaissance');
 
-    $adresse = trim($_POST['adresse'] ?? '');
-    $telephone = trim($_POST['telephone'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $genre = trim($_POST['genre'] ?? 'Homme');
-    $numeroCarteVitale = trim($_POST['numeroCarteVitale'] ?? '');
-    $mutuelle = trim($_POST['mutuelle'] ?? '');
-
-    // (نخلي array ديال patient كما كان عندك)
-    $patient = [
-        'nom' => $nom,
-        'prenom' => $prenom,
-        'dateNaissance' => $dateNaissance,
-        'adresse' => $adresse,
-        'telephone' => $telephone,
-        'email' => $email,
-        'genre' => $genre,
-        'numeroCarteVitale' => $numeroCarteVitale,
-        'mutuelle' => $mutuelle,
-    ];
-
-    if ($nom === "" || $prenom === "" || $dateNaissance === "") {
+    if ($nom === '' || $prenom === '' || $dateNaissance === '') {
         $dossier = getDossierById($idDossier);
         $error = "Nom / Prénom / Date naissance obligatoires.";
         require __DIR__ . '/../views/dossiers/edit.php';
         return;
     }
 
-    // ---------- Dossier ----------
-    $dateAdmission = isset($_POST['dateAdmission']) ? trim($_POST['dateAdmission']) : "";
-    $dateSortie = isset($_POST['dateSortie']) ? trim($_POST['dateSortie']) : "";
-    $historiqueMedical = isset($_POST['historiqueMedical']) ? trim($_POST['historiqueMedical']) : "";
-    $antecedant = isset($_POST['antecedant']) ? trim($_POST['antecedant']) : "";
-    $etat_entree = isset($_POST['etat_entree']) ? trim($_POST['etat_entree']) : "";
-    $diagnostic = isset($_POST['diagnostic']) ? trim($_POST['diagnostic']) : "";
-    $examen = isset($_POST['examen']) ? trim($_POST['examen']) : "";
-    $traitements = isset($_POST['traitements']) ? trim($_POST['traitements']) : "";
+    // Données patient (optionnelles)
+    $adresse = getStrParam('adresse');
+    $telephone = getStrParam('telephone');
+    $email = getStrParam('email');
+    $genre = getStrParam('genre', 'Homme');
+    $numeroCarteVitale = getStrParam('numeroCarteVitale');
+    $mutuelle = getStrParam('mutuelle');
 
-    $statut = isset($_POST['statut']) ? trim($_POST['statut']) : "ouvert";
-    $niveau = isset($_POST['niveau']) ? trim($_POST['niveau']) : "1";
-    $delai = isset($_POST['delaiPriseCharge']) ? trim($_POST['delaiPriseCharge']) : "NonImmediat";
+    // Données dossier
+    $dateAdmission = getStrParam('dateAdmission');
+    $dateSortie = getStrParam('dateSortie');
+    $historiqueMedical = getStrParam('historiqueMedical');
+    $antecedant = getStrParam('antecedant');
+    $etat_entree = getStrParam('etat_entree');
+    $diagnostic = getStrParam('diagnostic');
+    $examen = getStrParam('examen');
+    $traitements = getStrParam('traitements');
 
-    // UPDATE
-    updatePatient($idPatient, $nom, $prenom, $dateNaissance, $adresse, $telephone, $email, $genre, $numeroCarteVitale, $mutuelle);
-    updateDossier($idDossier, $dateAdmission, $dateSortie, $historiqueMedical, $antecedant, $etat_entree, $diagnostic, $examen, $traitements, $statut, $niveau, $delai);
+    $statut = getStrParam('statut', 'ouvert');
+    $niveau = getStrParam('niveau', '1');
+    $delai = getStrParam('delaiPriseCharge', 'NonImmediat');
 
-    header("Location: index.php?action=dossier_detail&id=" . $idDossier);
+    // Mise à jour en base
+    updatePatient(
+        $idPatient,
+        $nom,
+        $prenom,
+        $dateNaissance,
+        $adresse,
+        $telephone,
+        $email,
+        $genre,
+        $numeroCarteVitale,
+        $mutuelle
+    );
+
+    updateDossier(
+        $idDossier,
+        $dateAdmission,
+        $dateSortie,
+        $historiqueMedical,
+        $antecedant,
+        $etat_entree,
+        $diagnostic,
+        $examen,
+        $traitements,
+        $statut,
+        $niveau,
+        $delai
+    );
+
+    header('Location: index.php?action=dossier_detail&id=' . $idDossier);
     exit;
 }
 
+/**
+ * Formulaire de création (GET)
+ */
 function dossier_create_form(): void
 {
     $error = '';
     require __DIR__ . '/../views/dossiers/create.php';
 }
 
+/**
+ * Traitement de la création (POST)
+ */
 function dossier_create(): void
 {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!requirePost()) {
         header('Location: index.php?action=dossier_create_form');
         exit;
     }
 
-    // ===== Patient =====
+    // Données patient
     $patient = [
-        'nom' => trim($_POST['nom'] ?? ''),
-        'prenom' => trim($_POST['prenom'] ?? ''),
-        'age' => (int)($_POST['age'] ?? 0), // نخليه كما هو
-        'dateNaissance' => trim($_POST['dateNaissance'] ?? ''), // ✅ زيدناه (هو اللي ناقص)
-        'adresse' => trim($_POST['adresse'] ?? ''),
-        'telephone' => trim($_POST['telephone'] ?? ''),
-        'email' => trim($_POST['email'] ?? ''),
-        'genre' => trim($_POST['genre'] ?? 'Homme'),
-        'numeroCarteVitale' => trim($_POST['numeroCarteVitale'] ?? ''),
-        'mutuelle' => trim($_POST['mutuelle'] ?? ''),
-        'etat_sante' => trim($_POST['etat_sante'] ?? ''), // نخليه كما هو
-        // لو تحب تربطهم تلقائيًا بالمستخدم:
-        'idHopital' => (int)($_POST['idHopital'] ?? 0),
-        'idService' => (int)($_POST['idService'] ?? 0),
-        'idTransfert' => (int)($_POST['idTransfert'] ?? 0),
+        'nom' => getStrParam('nom'),
+        'prenom' => getStrParam('prenom'),
+        'age' => getIntParam('age', 0),
+        'dateNaissance' => getStrParam('dateNaissance'),
+        'adresse' => getStrParam('adresse'),
+        'telephone' => getStrParam('telephone'),
+        'email' => getStrParam('email'),
+        'genre' => getStrParam('genre', 'Homme'),
+        'numeroCarteVitale' => getStrParam('numeroCarteVitale'),
+        'mutuelle' => getStrParam('mutuelle'),
+        'etat_sante' => getStrParam('etat_sante'),
+
+        'idHopital' => getIntParam('idHopital', 0),
+        'idService' => getIntParam('idService', 0),
+        'idTransfert' => getIntParam('idTransfert', 0),
     ];
 
-    // Minimum validation
     if ($patient['nom'] === '' || $patient['prenom'] === '' || $patient['dateNaissance'] === '') {
         $error = "Nom, prénom et date de naissance sont obligatoires.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
-    // ===== Dossier =====
+    // Données dossier
     $dossier = [
-        'idService' => (int)($_POST['idService'] ?? 0), // نخليه كما هو (حتى لو ما كيتستعملش دابا)
-        'idHopital' => (int)($_POST['idHopital'] ?? 0), // ✅ مهم لـ createDossier()
-        'dateAdmission' => trim($_POST['dateAdmission'] ?? date('Y-m-d')),
+        'idService' => getIntParam('idService', 0),
+        'idHopital' => getIntParam('idHopital', 0),
+
+        'dateAdmission' => getStrParam('dateAdmission', date('Y-m-d')),
         'dateSortie' => null,
-        'historiqueMedical' => trim($_POST['historiqueMedical'] ?? ''),
-        'antecedant' => trim($_POST['antecedant'] ?? ''),
-        'etat_entree' => trim($_POST['etat_entree'] ?? ''),
-        'diagnostic' => trim($_POST['diagnostic'] ?? ''),
-        'examen' => trim($_POST['examen'] ?? ''),
-        'traitements' => trim($_POST['traitements'] ?? ''),
-        'observations' => trim($_POST['observations'] ?? ''), // نخليه كما هو
-        'statut' => trim($_POST['statut'] ?? 'ouvert'), // ✅ بدل OUVERT باش يطابق enum
-        'niveau' => trim($_POST['niveau'] ?? '1'), // ✅ schema
-        'delaiPriseCharge' => trim($_POST['delaiPriseCharge'] ?? 'NonImmediat'), // ✅ schema
-        'idNiveauPriorite' => (int)($_POST['idNiveauPriorite'] ?? 0), // نخليه كما هو
-        'idTransfert' => (int)($_POST['idTransfert'] ?? 0),
+
+        'historiqueMedical' => getStrParam('historiqueMedical'),
+        'antecedant' => getStrParam('antecedant'),
+        'etat_entree' => getStrParam('etat_entree'),
+        'diagnostic' => getStrParam('diagnostic'),
+        'examen' => getStrParam('examen'),
+        'traitements' => getStrParam('traitements'),
+
+        'observations' => getStrParam('observations'),
+
+        'statut' => getStrParam('statut', 'ouvert'),
+        'niveau' => getStrParam('niveau', '1'),
+        'delaiPriseCharge' => getStrParam('delaiPriseCharge', 'NonImmediat'),
+
+        'idNiveauPriorite' => getIntParam('idNiveauPriorite', 0),
+        'idTransfert' => getIntParam('idTransfert', 0),
     ];
 
     if ($dossier['idHopital'] <= 0) {
@@ -199,9 +254,85 @@ function dossier_create(): void
         return;
     }
 
-    // Transaction: create patient ثم create dossier
     $newDossierId = createPatientAndDossier($patient, $dossier);
 
     header('Location: index.php?action=dossier_detail&id=' . $newDossierId);
+    exit;
+}
+
+// ===============================
+// ACTIONS MEDECIN
+// ===============================
+
+function dossier_detail_medecin(): void
+{
+    requireRole('MEDECIN');
+
+    $idDossier = getIntParam('id', 0);
+    if ($idDossier <= 0) {
+        abort(400, "Paramètre id invalide.");
+        return;
+    }
+
+    $dossier = getDossierById($idDossier);
+    if (!$dossier) {
+        abort(404, "Dossier introuvable.");
+        return;
+    }
+
+    require APP_PATH . '/views/dossiers/detail_medecin.php';
+}
+
+function dossier_demander_examen(): void
+{
+    requireRole('MEDECIN');
+
+    if (!requirePost()) {
+        return;
+    }
+
+    $idDossier   = getIntParam('idDossier', 0);
+    $typeExamen  = getStrParam('typeExamen');
+    $noteMedecin = getStrParam('noteMedecin');
+
+    if ($idDossier <= 0 || $typeExamen === '') {
+        $_SESSION['flash_error'] = "Veuillez remplir les champs obligatoires.";
+        header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+        exit;
+    }
+
+    $ok = examen_create($idDossier, $typeExamen, $noteMedecin);
+
+    $_SESSION['flash_success'] = $ok ? "Examen demandé avec succès." : "";
+    $_SESSION['flash_error']   = $ok ? "" : "Erreur lors de la demande d'examen.";
+
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+    exit;
+}
+
+function dossier_demander_transfert(): void
+{
+    requireRole('MEDECIN');
+
+    if (!requirePost()) {
+        return;
+    }
+
+    $idDossier    = getIntParam('idDossier', 0);
+    $hopitalCible = getStrParam('hopitalCible');
+    $motif        = getStrParam('motif');
+
+    if ($idDossier <= 0 || $hopitalCible === '' || $motif === '') {
+        $_SESSION['flash_error'] = "Veuillez remplir tous les champs.";
+        header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+        exit;
+    }
+
+    $ok = transfert_create($idDossier, $hopitalCible, $motif);
+
+    $_SESSION['flash_success'] = $ok ? "Demande de transfert envoyée." : "";
+    $_SESSION['flash_error']   = $ok ? "" : "Erreur lors de la demande de transfert.";
+
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
     exit;
 }

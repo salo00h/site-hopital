@@ -1,3 +1,16 @@
+-- =========================================
+-- INITIALISATION BASE DE DONNEES
+-- =========================================
+
+DROP DATABASE IF EXISTS filrouge;
+
+CREATE DATABASE filrouge
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE filrouge;
+
+
 -- Table HOPITAL
 CREATE TABLE HOPITAL (
     idHopital TINYINT AUTO_INCREMENT PRIMARY KEY,
@@ -282,4 +295,20 @@ CREATE TABLE GENERER_ALERTE_PERSONNEL (
     idAlerte TINYINT NOT NULL,
     FOREIGN KEY (idPersonnel) REFERENCES PERSONNEL(idPersonnel) ON UPDATE CASCADE,
     FOREIGN KEY (idAlerte) REFERENCES ALERTE(idAlerte) ON UPDATE CASCADE
+);
+
+-- =========================
+-- TABLE: users
+-- =========================
+-- Table USERS (auth)
+CREATE TABLE USERS (
+  idUser INT AUTO_INCREMENT PRIMARY KEY,
+  idPersonnel TINYINT NOT NULL,
+  username VARCHAR(60) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('INFIRMIER_ACCUEIL','INFIRMIER','MEDECIN','DIRECTEUR','RESPONSABLE_REGIONAL','TECHNICIEN') NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+
+  UNIQUE (username),
+  FOREIGN KEY (idPersonnel) REFERENCES PERSONNEL(idPersonnel) ON UPDATE CASCADE
 );

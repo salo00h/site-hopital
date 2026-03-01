@@ -17,3 +17,39 @@ VALUES
 ('Saleh', 'Accueillant', 'saleh.accueil@filrouge.test', CURDATE(), 'Infirmier accueil', 1),
 ('Saleh', 'Medecin', 'saleh.medecin@filrouge.test', CURDATE(), 'Medecin generaliste', 2),
 ('Saleh', 'Tech', 'saleh.tech@filrouge.test', CURDATE(), 'Technicien support', 3);
+
+-- ROLES (profil métier)
+INSERT INTO infirmier (idPersonnel, spe) VALUES (1, 'Accueil');
+INSERT INTO medecin (idPersonnel, spe) VALUES (2, 'Generaliste');
+INSERT INTO technicien (idPersonnel, niveauSupport) VALUES (3, 'N1');
+
+-- LITS (service Accueil = idService 1)
+INSERT INTO lit (numeroLit, etatLit, idService) VALUES
+(101, 'disponible', 1),
+(102, 'disponible', 1),
+(103, 'disponible', 1),
+(104, 'disponible', 1),
+(105, 'disponible', 1),
+(106, 'disponible', 1),
+(107, 'disponible', 1);
+
+
+-- =========================================================
+-- (C) Insertion des comptes utilisateurs (login)
+-- =========================================================
+-- Cette partie permet d’ajouter les comptes de connexion
+-- pour le personnel médical dans l’application.
+--
+-- Important :
+-- Le mot de passe n’est PAS stocké en texte clair.
+-- Il est stocké sous forme de hash sécurisé généré par PHP.
+--
+-- Exemple de génération du hash en ligne de commande :
+-- php -r "echo password_hash('root123', PASSWORD_DEFAULT);"
+--
+-- Cela garantit la sécurité des comptes utilisateurs.
+
+INSERT INTO users (idPersonnel, username, password_hash, role, is_active) VALUES
+(1, 'accueil',    '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'INFIRMIER_ACCUEIL', 1),
+(2, 'medecin',    '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'MEDECIN', 1),
+(3, 'technicien', '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'TECHNICIEN', 1);

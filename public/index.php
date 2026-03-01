@@ -122,6 +122,54 @@ switch ($action) {
        lit_reserver();
        break;
 
+
+
+    // ===== DOSSIER - MEDECIN =====
+
+    case 'dossier_detail_medecin':
+      require_once APP_PATH . '/includes/auth_guard.php';
+      require_once APP_PATH . '/controllers/DossierController.php';
+
+      dossier_detail_medecin();
+      break;
+
+    case 'dossier_demander_examen':
+      require_once APP_PATH . '/controllers/DossierController.php';
+      dossier_demander_examen();
+       break;
+
+    case 'dossier_demander_transfert':
+       require_once APP_PATH . '/controllers/DossierController.php';
+       dossier_demander_transfert();
+       break;
+
+       // ===== EQUIPEMENTS - MEDECIN (page protégée) =====
+
+    case 'equipements_list_medecin':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipements_list_medecin();
+        break;
+
+    case 'equipement_reserver_form':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_reserver_form();
+        break;
+
+    case 'equipement_reserver':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_reserver();
+        break;
+
+    // (اختياري) إذا كاين feature ديال panne
+    case 'equipement_signaler_panne':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_signaler_panne();
+        break;
+
     // ===== ACTION INCONNUE =====
 
     default:

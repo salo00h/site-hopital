@@ -47,7 +47,7 @@
           </td>
           <td><?= htmlspecialchars((string)$d['statut'], ENT_QUOTES, 'UTF-8') ?></td>
           <td>
-            <a class="btn" href="index.php?action=dossier_detail&id=<?= (int)$d['idDossier'] ?>">Consulter</a>
+            <a class="btn" href="index.php?action=dossier_detail_medecin&id=<?= (int)$d['idDossier'] ?>">Consulter</a>
           </td>
         </tr>
       <?php endforeach; ?>

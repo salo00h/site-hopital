@@ -1,15 +1,35 @@
-<?php require __DIR__ . '/../../includes/header.php'; ?>
-<?php require __DIR__ . '/../../includes/sidebar.php'; ?>
+<?php
+/*
+  ==============================
+  VIEW : Création Dossier Patient
+  ==============================
+  Cette page affiche un formulaire pour :
+  - Créer un nouveau patient
+  - Créer un dossier lié à ce patient
+  Aucune logique métier ici (seulement affichage + formulaire).
+*/
+
+require __DIR__ . '/../../includes/header.php';
+require __DIR__ . '/../../includes/sidebar.php';
+?>
 
 <h1 class="page-title">Créer un dossier patient</h1>
 
+<!-- Message d'erreur envoyé par le contrôleur -->
 <?php if (!empty($error)) : ?>
-  <div class="alert alert-danger"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
+  <div class="alert alert-danger">
+    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+  </div>
 <?php endif; ?>
 
 <div class="card">
+
+  <!-- Formulaire POST vers le contrôleur -->
   <form class="form" method="post" action="index.php?action=dossier_create">
 
+    <!-- ===================== -->
+    <!-- Informations Patient -->
+    <!-- ===================== -->
     <h3>Infos patient</h3>
 
     <p>
@@ -41,25 +61,35 @@
       <input type="text" name="telephone">
     </p>
 
+    <!-- Séparation visuelle -->
     <div class="separator"></div>
 
+    <!-- ===================== -->
+    <!-- Informations Dossier -->
+    <!-- ===================== -->
     <h3>Infos dossier</h3>
 
     <p>
       <label>Date admission</label>
-      <input type="date" name="dateAdmission" value="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8') ?>">
+      <!-- Par défaut : date du jour -->
+      <input type="date" name="dateAdmission"
+             value="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8') ?>">
     </p>
 
     <p>
       <label>Statut *</label>
+      <!-- Valeur par défaut : ouvert -->
       <input type="text" name="statut" value="ouvert" required>
     </p>
 
     <p>
       <label>Niveau *</label>
       <select name="niveau" required>
-        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-        <option value="4">4</option><option value="5">5</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
       </select>
     </p>
 
@@ -88,13 +118,22 @@
       <textarea name="antecedant"></textarea>
     </p>
 
-    <!-- idHopital ثابت للتست -->
+    <!-- idHopital fixé pour les tests -->
     <input type="hidden" name="idHopital" value="1">
 
+    <!-- ===================== -->
+    <!-- Boutons d'action -->
+    <!-- ===================== -->
     <div class="form-actions">
-      <button class="btn btn-primary" type="submit">Créer</button>
-      <a class="btn" href="index.php?action=dossiers_list">Annuler</a>
+      <button class="btn btn-primary" type="submit">
+        Créer
+      </button>
+
+      <a class="btn" href="index.php?action=dossiers_list">
+        Annuler
+      </a>
     </div>
+
   </form>
 </div>
 
