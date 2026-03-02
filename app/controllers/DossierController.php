@@ -47,10 +47,39 @@ function getStrParam(string $key, string $default = ''): string
 /**
  * Liste des dossiers (avec recherche simple via ?q=...)
  */
+/**
+ * Affiche la liste des dossiers.
+ * Pour le rôle MEDECIN uniquement :
+ * on récupère un résumé des équipements associés
+ * afin de les afficher dans la liste.
+ */
 function dossiers_list(): void
 {
+    // Récupération du filtre de recherche
     $q = getStrParam('q', '');
+
+    // Récupération des dossiers depuis le Model
     $dossiers = getAllDossiers($q);
+
+    // Initialisation du résumé des équipements
+    $equipementsResume = [];
+
+    // Uniquement pour le MEDECIN : afficher les équipements liés
+    if (($_SESSION['user']['role'] ?? '') === 'MEDECIN') {
+
+        require_once APP_PATH . '/models/EquipementModel.php';
+
+        // Extraction des idDossier pour requête groupée
+        $ids = array_map(
+            static fn($d) => (int)$d['idDossier'],
+            $dossiers
+        );
+
+        // Récupération des équipements associés à chaque dossier
+        $equipementsResume = equipements_resume_par_dossier($ids);
+    }
+
+    // Envoi des données à la vue
     require __DIR__ . '/../views/dossiers/liste.php';
 }
 
@@ -180,86 +209,101 @@ function dossier_update(): void
 }
 
 /**
- * Formulaire de création (GET)
+ * ==============================
+ * Affichage du formulaire de création
+ * ==============================
+ * - Accessible uniquement par l'infirmier
+ * - Le médecin n'a pas le droit de créer un dossier
  */
 function dossier_create_form(): void
 {
+    // Sécurité : seul le rôle INFIRMIER peut accéder
+    requireRole('INFIRMIER');
+
     $error = '';
     require __DIR__ . '/../views/dossiers/create.php';
 }
 
 /**
- * Traitement de la création (POST)
+ * ==============================
+ * Traitement de la création d'un dossier (POST)
+ * ==============================
+ * - Vérifie le rôle utilisateur
+ * - Vérifie les champs obligatoires
+ * - Crée le patient puis le dossier (transaction)
  */
 function dossier_create(): void
 {
+    // Sécurité : seul l'infirmier peut créer
+    requireRole('INFIRMIER');
+
+    // Vérifie que la requête est bien en POST
     if (!requirePost()) {
         header('Location: index.php?action=dossier_create_form');
         exit;
     }
 
-    // Données patient
+    /* =========================================
+       1) Récupération des données du patient
+    ========================================== */
     $patient = [
-        'nom' => getStrParam('nom'),
-        'prenom' => getStrParam('prenom'),
-        'age' => getIntParam('age', 0),
-        'dateNaissance' => getStrParam('dateNaissance'),
-        'adresse' => getStrParam('adresse'),
-        'telephone' => getStrParam('telephone'),
-        'email' => getStrParam('email'),
-        'genre' => getStrParam('genre', 'Homme'),
+        'nom'               => getStrParam('nom'),
+        'prenom'            => getStrParam('prenom'),
+        'dateNaissance'     => getStrParam('dateNaissance'),
+        'adresse'           => getStrParam('adresse'),
+        'telephone'         => getStrParam('telephone'),
+        'email'             => getStrParam('email'),
+        'genre'             => getStrParam('genre', 'Homme'),
         'numeroCarteVitale' => getStrParam('numeroCarteVitale'),
-        'mutuelle' => getStrParam('mutuelle'),
-        'etat_sante' => getStrParam('etat_sante'),
-
-        'idHopital' => getIntParam('idHopital', 0),
-        'idService' => getIntParam('idService', 0),
-        'idTransfert' => getIntParam('idTransfert', 0),
+        'mutuelle'          => getStrParam('mutuelle'),
     ];
 
-    if ($patient['nom'] === '' || $patient['prenom'] === '' || $patient['dateNaissance'] === '') {
+    // Vérification des champs obligatoires
+    if ($patient['nom'] === '' ||
+        $patient['prenom'] === '' ||
+        $patient['dateNaissance'] === '') {
+
         $error = "Nom, prénom et date de naissance sont obligatoires.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
-    // Données dossier
+    /* =========================================
+       2) Récupération des données du dossier
+    ========================================== */
     $dossier = [
-        'idService' => getIntParam('idService', 0),
-        'idHopital' => getIntParam('idHopital', 0),
-
-        'dateAdmission' => getStrParam('dateAdmission', date('Y-m-d')),
-        'dateSortie' => null,
-
+        'idHopital'         => getIntParam('idHopital', 0),
+        'dateAdmission'     => getStrParam('dateAdmission', date('Y-m-d')),
         'historiqueMedical' => getStrParam('historiqueMedical'),
-        'antecedant' => getStrParam('antecedant'),
-        'etat_entree' => getStrParam('etat_entree'),
-        'diagnostic' => getStrParam('diagnostic'),
-        'examen' => getStrParam('examen'),
-        'traitements' => getStrParam('traitements'),
-
-        'observations' => getStrParam('observations'),
-
-        'statut' => getStrParam('statut', 'ouvert'),
-        'niveau' => getStrParam('niveau', '1'),
-        'delaiPriseCharge' => getStrParam('delaiPriseCharge', 'NonImmediat'),
-
-        'idNiveauPriorite' => getIntParam('idNiveauPriorite', 0),
-        'idTransfert' => getIntParam('idTransfert', 0),
+        'antecedant'        => getStrParam('antecedant'),
+        'etat_entree'       => getStrParam('etat_entree'),
+        'diagnostic'        => getStrParam('diagnostic'),
+        'examen'            => getStrParam('examen'),
+        'traitements'       => getStrParam('traitements'),
+        'statut'            => getStrParam('statut', 'ouvert'),
+        'niveau'            => getStrParam('niveau', '1'),
+        'delaiPriseCharge'  => getStrParam('delaiPriseCharge', 'NonImmediat'),
+        'idTransfert'       => getIntParam('idTransfert', 0),
     ];
 
+    // Vérification minimale
     if ($dossier['idHopital'] <= 0) {
         $error = "idHopital manquant.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
+    /* =========================================
+       3) Création en base (transaction sécurisée)
+       - Création du patient
+       - Création du dossier lié
+    ========================================== */
     $newDossierId = createPatientAndDossier($patient, $dossier);
 
+    // Redirection vers le détail du dossier
     header('Location: index.php?action=dossier_detail&id=' . $newDossierId);
     exit;
 }
-
 // ===============================
 // ACTIONS MEDECIN
 // ===============================
@@ -279,6 +323,11 @@ function dossier_detail_medecin(): void
         abort(404, "Dossier introuvable.");
         return;
     }
+
+    require_once APP_PATH . '/models/EquipementModel.php';
+
+    // Récupération des équipements liés au dossier pour affichage dans la vue
+    $equipementsReserves = gestion_equipements_by_dossier($idDossier);
 
     require APP_PATH . '/views/dossiers/detail_medecin.php';
 }

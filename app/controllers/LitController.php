@@ -30,9 +30,9 @@ function lits_dashboard(): void
         exit;
     }
 
-    // 2) Trouver le service de l'utilisateur
-    $idPersonnel = (int)($user['idPersonnel'] ?? 0);
-    $idService   = getServiceIdByPersonnel($idPersonnel);
+    // On prend le service du dossier (pas de l'utilisateur)
+    $dossier = getDossierById($idDossier);
+    $idService = (int)($dossier['idService'] ?? 0);
 
     // 3) Variables pour la view
     $error = '';
@@ -121,26 +121,33 @@ function lit_reserver_form(): void
         exit;
     }
 
-    // 3) Règle métier : un dossier ne peut pas réserver plusieurs lits
+    // 3) Vérifier si le dossier a déjà un lit
     $litDeja = getLitForDossier($idDossier);
     if ($litDeja) {
-        $_SESSION['success'] = "Ce dossier a déjà le lit n°" . $litDeja['numeroLit'] . ".";
+        $_SESSION['success'] =
+            "Ce dossier a déjà le lit n°" . $litDeja['numeroLit'] . ".";
         header('Location: index.php?action=dossier_detail&id=' . $idDossier);
         exit;
     }
 
-    // 4) Trouver le service de l'utilisateur
-    $idPersonnel = (int)($user['idPersonnel'] ?? 0);
-    $idService   = getServiceIdByPersonnel($idPersonnel);
+    // 4) Récupérer le dossier
+    $dossier = getDossierById($idDossier);
+    if (!$dossier) {
+        echo "Dossier introuvable.";
+        exit;
+    }
 
-    // 5) Données pour la view
+    // 5) On prend l'hôpital du dossier
+    $idHopital = (int)($dossier['idHopital'] ?? 0);
+
     $error = '';
     $availableLits = [];
 
-    if (!$idService) {
-        $error = "Service introuvable.";
+    if ($idHopital <= 0) {
+        $error = "Hôpital introuvable pour ce dossier.";
     } else {
-        $availableLits = getAvailableLits($idService);
+        // On récupère les lits disponibles via l'hôpital
+        $availableLits = getAvailableLitsByHopital($idHopital);
     }
 
     // 6) Affichage
@@ -186,9 +193,10 @@ function lit_reserver(): void
     $idPersonnel = (int)($user['idPersonnel'] ?? 0);
     $idInfirmier = getInfirmierIdByPersonnel($idPersonnel);
 
+    // Si ce n'est pas un infirmier (ex: médecin),
+    // on met NULL comme idInfirmier
     if (!$idInfirmier) {
-        echo "Infirmier introuvable pour cet utilisateur.";
-        exit;
+     $idInfirmier = null;
     }
 
     // 5) Réserver (Model) + gestion d'erreur simple
