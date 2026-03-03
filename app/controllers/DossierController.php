@@ -218,7 +218,7 @@ function dossier_update(): void
 function dossier_create_form(): void
 {
     // Sécurité : seul le rôle INFIRMIER peut accéder
-    requireRole('INFIRMIER');
+    requireRole('INFIRMIER_ACCUEIL');
 
     $error = '';
     require __DIR__ . '/../views/dossiers/create.php';
@@ -235,7 +235,7 @@ function dossier_create_form(): void
 function dossier_create(): void
 {
     // Sécurité : seul l'infirmier peut créer
-    requireRole('INFIRMIER');
+    requireRole('INFIRMIER_ACCUEIL');
 
     // Vérifie que la requête est bien en POST
     if (!requirePost()) {
