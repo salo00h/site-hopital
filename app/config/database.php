@@ -1,40 +1,45 @@
 <?php
 declare(strict_types=1);
 
-// Fichier de connexion à la base de données.
-// Ce fichier crée une seule connexion PDO (singleton)
-// pour éviter d’ouvrir plusieurs connexions inutiles.
-
-require_once __DIR__ . '/config.php';
-
 function db(): PDO
 {
-    static $pdo = null; // garde la connexion en mémoire
+    static $pdo = null;
 
-    // Si la connexion existe déjà, on la retourne
     if ($pdo instanceof PDO) {
         return $pdo;
     }
 
-    // On récupère les paramètres depuis config.php
-    $cfg = require __DIR__ . '/config.php';
+    // إذا كان الموقع على Railway / Render
+    if (getenv('DB_HOST')) {
 
-    // Construction du DSN pour MySQL
-    $dsn = 'mysql:host=' . $cfg['host']
-         . ';port=' . $cfg['port']
-         . ';dbname=' . $cfg['dbname']
-         . ';charset=' . $cfg['charset'];
+        $host = getenv('DB_HOST');
+        $port = getenv('DB_PORT');
+        $db   = getenv('DB_NAME');
+        $user = getenv('DB_USER');
+        $pass = getenv('DB_PASS');
 
-    // Création de la connexion PDO avec options de sécurité
-    $pdo = new PDO($dsn, $cfg['user'], $cfg['pass'], [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, // affiche les erreurs
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, // tableau associatif
+    } else {
+
+        // Local
+        $cfg = require __DIR__ . '/config.php';
+
+        $host = $cfg['host'];
+        $port = $cfg['port'];
+        $db   = $cfg['dbname'];
+        $user = $cfg['user'];
+        $pass = $cfg['pass'];
+    }
+
+    $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
+
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
     return $pdo;
 }
 
-// Fonction alternative pour garder le nom utilisé dans le projet
 function connectBD(): PDO
 {
     return db();
