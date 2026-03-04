@@ -228,3 +228,29 @@ function examens_count_by_dossiers(array $idsDossiers): array
 
     return $map;
 }
+
+
+
+/**
+ * Crée un patient puis un dossier dans une transaction.
+ * En cas d'erreur : rollback.
+ */
+function createPatientAndDossier(array $patient, array $dossier): int
+{
+    $pdo = db();
+    $pdo->beginTransaction();
+
+    try {
+        // 1) Créer le patient
+        $idPatient = createPatient($patient);
+
+        // 2) Créer le dossier lié au patient
+        $idDossier = createDossier($idPatient, $dossier);
+
+        $pdo->commit();
+        return $idDossier;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
