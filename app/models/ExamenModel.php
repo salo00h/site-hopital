@@ -24,7 +24,7 @@ require_once __DIR__ . '/_tables.php';
 function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin = null): bool
 {
     $sql = "
-        INSERT INTO " . T_EXAMEN . " (idDossier, typeExamen, noteMedecin, dateDemande, statut)
+        INSERT INTO " . T_EXAMEN . " (idDossier, typeExamen, note_medecin, dateDemande, statut)
         VALUES (:idDossier, :typeExamen, :noteMedecin, NOW(), 'EN_ATTENTE')
     ";
 
@@ -42,7 +42,7 @@ function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin 
 function examens_get_by_dossier(int $idDossier): array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         WHERE idDossier = :idDossier
         ORDER BY dateDemande DESC
@@ -59,7 +59,7 @@ function examens_get_by_dossier(int $idDossier): array
 function examen_get_by_id(int $idExamen): ?array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         WHERE idExamen = :idExamen
         LIMIT 1
@@ -72,7 +72,7 @@ function examen_get_by_id(int $idExamen): ?array
 }
 
 /**
- * Met à jour le statut (EN_ATTENTE | EN_COURS | TERMINE | ANNULE).
+ * Met à jour le statut.
  */
 function examen_update_statut(int $idExamen, string $statut): bool
 {
@@ -91,8 +91,7 @@ function examen_update_statut(int $idExamen, string $statut): bool
 }
 
 /**
- * Liste des demandes récentes (pour dashboard).
- * Option: filtrer par statut.
+ * Liste des examens récents.
  */
 function examens_get_recent(int $limit = 10, ?string $statut = null): array
 {
@@ -100,7 +99,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
 
     if ($statut !== null) {
         $sql = "
-            SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+            SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
             FROM " . T_EXAMEN . "
             WHERE statut = :statut
             ORDER BY dateDemande DESC
@@ -112,7 +111,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
     }
 
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         ORDER BY dateDemande DESC
         LIMIT $limit
@@ -123,8 +122,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
 }
 
 /**
- * (Optionnel) Liste avec infos patient via dossier.
- * Pour afficher sur dashboard.
+ * Liste avec infos patient.
  */
 function examens_get_recent_with_patient(int $limit = 10): array
 {
@@ -134,7 +132,7 @@ function examens_get_recent_with_patient(int $limit = 10): array
         SELECT
             e.idExamen,
             e.typeExamen,
-            e.noteMedecin,
+            e.note_medecin,
             e.dateDemande,
             e.statut,
             d.idDossier,
@@ -153,7 +151,7 @@ function examens_get_recent_with_patient(int $limit = 10): array
 }
 
 /**
- * Retourne la liste des types d'examens (pour le formulaire).
+ * Liste des types d'examens.
  */
 function examens_types_all(): array
 {
