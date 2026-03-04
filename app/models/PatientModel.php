@@ -9,6 +9,9 @@ declare(strict_types=1);
   - Ici on met le SQL uniquement.
   - Le contrôleur envoie les données à ces fonctions.
   - On utilise PDO + requêtes préparées.
+  - Utilisation des constantes de tables (_tables.php)
+    pour éviter les problèmes de majuscules/minuscules
+    entre Windows et Linux (Render / Railway).
 */
 
 require_once __DIR__ . '/../config/database.php';
@@ -23,7 +26,7 @@ require_once __DIR__ . '/_tables.php';
 function createPatient(array $data): int
 {
     $sql = "
-        INSERT INTO PATIENT
+        INSERT INTO " . T_PATIENT . "
             (nom, prenom, dateNaissance, adresse, telephone, email, genre, numeroCarteVitale, mutuelle)
         VALUES
             (:nom, :prenom, :dateNaissance, :adresse, :telephone, :email, :genre, :numeroCarteVitale, :mutuelle)
@@ -33,11 +36,11 @@ function createPatient(array $data): int
     $stmt->execute([
         ':nom' => $data['nom'],
         ':prenom' => $data['prenom'],
-        ':dateNaissance' => $data['dateNaissance'], // obligatoire
+        ':dateNaissance' => $data['dateNaissance'],
         ':adresse' => ($data['adresse'] ?? '') !== '' ? $data['adresse'] : null,
         ':telephone' => ($data['telephone'] ?? '') !== '' ? $data['telephone'] : null,
         ':email' => ($data['email'] ?? '') !== '' ? $data['email'] : null,
-        ':genre' => $data['genre'], // Homme / Femme / Autre
+        ':genre' => $data['genre'],
         ':numeroCarteVitale' => ($data['numeroCarteVitale'] ?? '') !== '' ? $data['numeroCarteVitale'] : null,
         ':mutuelle' => ($data['mutuelle'] ?? '') !== '' ? $data['mutuelle'] : null,
     ]);
@@ -47,11 +50,6 @@ function createPatient(array $data): int
 
 /**
  * Met à jour un patient.
- * Règles simples  :
- * - idPatient doit être valide
- * - nom / prenom / dateNaissance obligatoires
- * - si genre vide => "Homme"
- * - champs optionnels vides => NULL
  */
 function updatePatient(
     $idPatient,
@@ -65,7 +63,7 @@ function updatePatient(
     $numeroCarteVitale,
     $mutuelle
 ) {
-    // 1) Vérifications de base
+
     $idPatient = (int)$idPatient;
     if ($idPatient <= 0) {
         throw new Exception("ID Patient invalide");
@@ -75,14 +73,12 @@ function updatePatient(
         throw new Exception("Nom, prénom et date de naissance obligatoires");
     }
 
-    // Valeur par défaut si genre vide
     if ($genre === "") {
         $genre = "Homme";
     }
 
-    // 2) Requête UPDATE
     $sql = "
-        UPDATE PATIENT SET
+        UPDATE " . T_PATIENT . " SET
             nom = :nom,
             prenom = :prenom,
             dateNaissance = :dateNaissance,
