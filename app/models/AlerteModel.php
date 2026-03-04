@@ -8,6 +8,9 @@ declare(strict_types=1);
  Rôle :
  - Contenir UNIQUEMENT du SQL lié aux alertes.
  - Fournir les dernières alertes pour le dashboard.
+ - Utiliser les constantes des tables (_tables.php)
+   pour éviter les problèmes de majuscules/minuscules
+   entre Windows et Linux (Render / Railway).
 ==================================================
 */
 
@@ -18,7 +21,7 @@ require_once __DIR__ . '/_tables.php';
  * Renvoie les dernières alertes (ex: 5).
  *
  * IMPORTANT : dans la BD :
- * - table : ALERTE
+ * - table : alerte
  * - le texte est dans la colonne : description (pas "message")
  *
  * Pour ne pas casser la vue (qui affiche $a['message']),
@@ -35,7 +38,7 @@ function alertes_get_last(int $limit = 5): array
             a.typeAlerte,
             a.statutAlerte,
             a.description AS message
-        FROM ALERTE a
+        FROM " . T_ALERTE . " a
         ORDER BY a.dateCreation DESC, a.idAlerte DESC
         LIMIT :lim
     ";
