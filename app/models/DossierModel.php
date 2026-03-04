@@ -272,7 +272,7 @@ function updateDossier(
     ?string $traitements,
     string $statut,
     string $niveau,
-    int $delai
+    string $delai
 ): void {
     $sql = "
         UPDATE " . T_DOSSIER . " SET
