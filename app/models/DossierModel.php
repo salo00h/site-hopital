@@ -254,3 +254,55 @@ function createPatientAndDossier(array $patient, array $dossier): int
         throw $e;
     }
 }
+
+
+/**
+ * Met à jour un dossier existant.
+ * Les champs vides sont enregistrés en NULL.
+ */
+function updateDossier(
+    int $idDossier,
+    ?string $dateAdmission,
+    ?string $dateSortie,
+    ?string $historiqueMedical,
+    ?string $antecedant,
+    ?string $etat_entree,
+    ?string $diagnostic,
+    ?string $examen,
+    ?string $traitements,
+    string $statut,
+    string $niveau,
+    int $delai
+): void {
+    $sql = "
+        UPDATE " . T_DOSSIER . " SET
+            dateAdmission = :dateAdmission,
+            dateSortie = :dateSortie,
+            historiqueMedical = :historiqueMedical,
+            antecedant = :antecedant,
+            etat_entree = :etat_entree,
+            diagnostic = :diagnostic,
+            examen = :examen,
+            traitements = :traitements,
+            statut = :statut,
+            niveau = :niveau,
+            delaiPriseCharge = :delai
+        WHERE idDossier = :idDossier
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute([
+        ':dateAdmission' => toNull($dateAdmission),
+        ':dateSortie' => toNull($dateSortie),
+        ':historiqueMedical' => toNull($historiqueMedical),
+        ':antecedant' => toNull($antecedant),
+        ':etat_entree' => toNull($etat_entree),
+        ':diagnostic' => toNull($diagnostic),
+        ':examen' => toNull($examen),
+        ':traitements' => toNull($traitements),
+        ':statut' => $statut,
+        ':niveau' => $niveau,
+        ':delai' => $delai,
+        ':idDossier' => $idDossier,
+    ]);
+}
