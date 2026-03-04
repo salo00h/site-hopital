@@ -8,12 +8,15 @@ declare(strict_types=1);
  Rôle :
  - Requêtes SQL liées aux transferts inter-hôpitaux.
  - Aucune logique métier / affichage ici.
+ - Utilisation des constantes de tables (_tables.php)
+   pour éviter les problèmes de majuscules/minuscules
+   entre Windows et Linux (Render / Railway).
 ==================================================
 */
 
 require_once APP_PATH . '/config/database.php';
 require_once __DIR__ . '/_tables.php';
-const TRANSFERT_TABLE = 'transfert_patient';
+
 
 /**
  * Créer une demande de transfert (Médecin).
@@ -28,7 +31,7 @@ function transfert_create_patient(
     $pdo = db();
 
     $sql = "
-        INSERT INTO " . TRANSFERT_TABLE . " 
+        INSERT INTO " . T_TRANSFER_PATIENT . "
             (idPatient, idHopital, dateCreation, statutTransfer, hopitalDestinataire, serviceDestinataire)
         VALUES
             (:idPatient, :idHopital, NOW(), 'demande', :hopitalDestinataire, :serviceDestinataire)
@@ -44,6 +47,7 @@ function transfert_create_patient(
     ]);
 }
 
+
 /**
  * Récupérer l'historique des transferts d'un patient.
  */
@@ -53,7 +57,7 @@ function transferts_get_by_patient(int $idPatient): array
 
     $sql = "
         SELECT *
-        FROM " . TRANSFERT_TABLE . "
+        FROM " . T_TRANSFER_PATIENT . "
         WHERE idPatient = :idPatient
         ORDER BY dateCreation DESC
     ";
@@ -64,9 +68,9 @@ function transferts_get_by_patient(int $idPatient): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+
 /**
  * Liste des demandes en attente (Directeur).
- * Ici on prend 'demande' et/ou 'attente_reponse' حسب اختيارك.
  */
 function transferts_get_pending(): array
 {
@@ -74,7 +78,7 @@ function transferts_get_pending(): array
 
     $sql = "
         SELECT *
-        FROM " . TRANSFERT_TABLE . "
+        FROM " . T_TRANSFER_PATIENT . "
         WHERE statutTransfer IN ('demande', 'attente_reponse')
         ORDER BY dateCreation DESC
     ";
@@ -82,16 +86,16 @@ function transferts_get_pending(): array
     return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
+
 /**
- * Mettre à jour le statut d'un transfert (Directeur).
- * Valeurs possibles: 'accepte' ou 'refuse' (ou 'termine').
+ * Mettre à jour le statut d'un transfert.
  */
 function transfert_update_statut(int $idTransfer, string $newStatut): bool
 {
     $pdo = db();
 
     $sql = "
-        UPDATE " . TRANSFERT_TABLE . "
+        UPDATE " . T_TRANSFER_PATIENT . "
         SET statutTransfer = :statut
         WHERE idTransfer = :id
         LIMIT 1
@@ -105,8 +109,9 @@ function transfert_update_statut(int $idTransfer, string $newStatut): bool
     ]);
 }
 
+
 /**
- * (Optionnel) Récupérer un transfert par ID.
+ * Récupérer un transfert par ID.
  */
 function transfert_get_by_id(int $idTransfer): ?array
 {
@@ -114,7 +119,7 @@ function transfert_get_by_id(int $idTransfer): ?array
 
     $sql = "
         SELECT *
-        FROM " . TRANSFERT_TABLE . "
+        FROM " . T_TRANSFER_PATIENT . "
         WHERE idTransfer = :id
         LIMIT 1
     ";
@@ -127,13 +132,16 @@ function transfert_get_by_id(int $idTransfer): ?array
 }
 
 
+/**
+ * Liste des hôpitaux.
+ */
 function hopitaux_get_all(): array
 {
     $pdo = db();
 
     $sql = "
         SELECT idHopital, nom, ville
-        FROM hopital
+        FROM " . T_HOPITAL . "
         ORDER BY nom ASC
     ";
 
@@ -141,6 +149,9 @@ function hopitaux_get_all(): array
 }
 
 
+/**
+ * Compter les transferts par patient.
+ */
 function transferts_count_by_patients(array $idsPatients): array
 {
     if (empty($idsPatients)) {
@@ -153,7 +164,7 @@ function transferts_count_by_patients(array $idsPatients): array
 
     $sql = "
         SELECT idPatient, COUNT(*) AS nb
-        FROM transfert_patient
+        FROM " . T_TRANSFER_PATIENT . "
         WHERE idPatient IN ($in)
         GROUP BY idPatient
     ";
