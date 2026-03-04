@@ -24,7 +24,7 @@ require_once __DIR__ . '/_tables.php';
 function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin = null): bool
 {
     $sql = "
-        INSERT INTO " . T_EXAMEN . " (idDossier, typeExamen, note_medecin, dateDemande, statut)
+        INSERT INTO " . T_EXAMEN . " (idDossier, typeExamen, noteMedecin, dateDemande, statut)
         VALUES (:idDossier, :typeExamen, :noteMedecin, NOW(), 'EN_ATTENTE')
     ";
 
@@ -42,7 +42,7 @@ function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin 
 function examens_get_by_dossier(int $idDossier): array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         WHERE idDossier = :idDossier
         ORDER BY dateDemande DESC
@@ -59,7 +59,7 @@ function examens_get_by_dossier(int $idDossier): array
 function examen_get_by_id(int $idExamen): ?array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         WHERE idExamen = :idExamen
         LIMIT 1
@@ -99,7 +99,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
 
     if ($statut !== null) {
         $sql = "
-            SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
+            SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
             FROM " . T_EXAMEN . "
             WHERE statut = :statut
             ORDER BY dateDemande DESC
@@ -111,7 +111,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
     }
 
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, note_medecin, dateDemande, statut
+        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
         FROM " . T_EXAMEN . "
         ORDER BY dateDemande DESC
         LIMIT $limit
@@ -132,7 +132,7 @@ function examens_get_recent_with_patient(int $limit = 10): array
         SELECT
             e.idExamen,
             e.typeExamen,
-            e.note_medecin,
+            e.noteMedecin,
             e.dateDemande,
             e.statut,
             d.idDossier,
