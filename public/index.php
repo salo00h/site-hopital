@@ -134,14 +134,16 @@ switch ($action) {
       break;
 
     case 'dossier_demander_examen':
-      require_once APP_PATH . '/controllers/DossierController.php';
-      dossier_demander_examen();
-       break;
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/DossierController.php';
+     dossier_demander_examen();
+     break;
 
     case 'dossier_demander_transfert':
-       require_once APP_PATH . '/controllers/DossierController.php';
-       dossier_demander_transfert();
-       break;
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/DossierController.php';
+     dossier_demander_transfert();
+     break;
 
        // ===== EQUIPEMENTS - MEDECIN (page protégée) =====
 
@@ -163,13 +165,49 @@ switch ($action) {
         equipement_reserver();
         break;
 
-    // (اختياري) إذا كاين feature ديال panne
     case 'equipement_signaler_panne':
-        require_once APP_PATH . '/includes/auth_guard.php';
-        require_once APP_PATH . '/controllers/EquipementController.php';
-        equipement_signaler_panne();
-        break;
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/EquipementController.php';
+     equipement_signaler_panne();
+     break;
+    
+     // ===== EXAMENS - MEDECIN =====
+    case 'examen_form':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/ExamenController.php';
+     examen_form();
+     break;
 
+    case 'examen_create':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/ExamenController.php';
+     examen_create_action();
+     break;
+        
+     // ===== TRANSFERTS =====
+    case 'transfert_form':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/TransfertController.php';
+     transfert_form();
+     break;
+
+    case 'transfert_create':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/TransfertController.php';
+     transfert_create_action();
+     break;
+
+    case 'transferts_traitement_directeur':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/TransfertController.php';
+     transferts_traitement_directeur();
+     break;
+
+    case 'transfert_update_statut':
+     require_once APP_PATH . '/includes/auth_guard.php';
+     require_once APP_PATH . '/controllers/TransfertController.php';
+     transfert_update_statut_action();
+     break;
     // ===== ACTION INCONNUE =====
 
     default:

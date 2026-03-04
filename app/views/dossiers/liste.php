@@ -4,7 +4,7 @@
 <?php /** @var array $dossiers */ ?>
 
 <?php
-// Détection du rôle : affichage des équipements uniquement pour le médecin
+// Détection du rôle : affichage des colonnes uniquement pour le médecin
 $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
 ?>
 
@@ -37,6 +37,8 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
 
         <?php if ($isMedecin): ?>
           <th>Équipements</th>
+          <th>Examens</th>
+          <th>Transferts</th>
         <?php endif; ?>
 
         <th>Statut</th>
@@ -59,11 +61,27 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
           </td>
 
           <?php if ($isMedecin): ?>
+            <!-- Équipements -->
             <td>
               <?php
                 $id = (int)$d['idDossier'];
-                // Résumé des équipements liés au dossier (ex: ECG x2)
                 echo htmlspecialchars($equipementsResume[$id] ?? '-', ENT_QUOTES, 'UTF-8');
+              ?>
+            </td>
+
+            <!-- Examens -->
+            <td>
+              <?php
+                $id = (int)$d['idDossier'];
+                echo (int)($examensCount[$id] ?? 0);
+              ?>
+            </td>
+
+            <!-- ✅ Transferts -->
+            <td>
+              <?php
+                $idPatient = (int)($d['idPatient'] ?? 0);
+                echo (int)($transfertsCount[$idPatient] ?? 0);
               ?>
             </td>
           <?php endif; ?>

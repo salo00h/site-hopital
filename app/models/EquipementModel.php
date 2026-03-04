@@ -133,25 +133,30 @@ function equipement_set_occupe(int $idEquipement): void
     $stmt->execute([$idEquipement]);
 }
 
+
 /**
  * Ajoute un lien entre un dossier et un équipement (réservation).
  * On stocke la relation dans GESTION_EQUIPEMENT.
+ *
+ * ✅ IMPORTANT :
+ * - Retourne false si l'équipement est en panne ou non disponible.
+ * - Ne fait pas de exit() : le contrôleur gère les messages utilisateur.
  */
-function gestion_equipement_add(int $idDossier, int $idEquipement): void
+function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 {
     $pdo = db();
+
+    // Vérifie si l'équipement est réservable avant de réserver
+    if (!equipement_is_reservable($idEquipement)) {
+        return false;
+    }
 
     $sql = "INSERT INTO GESTION_EQUIPEMENT (idDossier, idEquipement) VALUES (?, ?)";
     $stmt = $pdo->prepare($sql);
 
-    $ok = $stmt->execute([$idDossier, $idEquipement]);
-
-
-    if (!$ok) {
-        $err = $stmt->errorInfo();
-        exit('ERREUR INSERT GESTION_EQUIPEMENT: ' . ($err[2] ?? 'unknown'));
-    }
+    return (bool)$stmt->execute([$idDossier, $idEquipement]);
 }
+
 
 /**
  * Retourne les équipements liés à un dossier.
@@ -193,7 +198,6 @@ function equipements_resume_par_dossier(array $idsDossiers): array
 
     $pdo = db();
 
-    // placeholders (?, ?, ?)
     $placeholders = implode(',', array_fill(0, count($idsDossiers), '?'));
 
     $sql = "
@@ -215,4 +219,87 @@ function equipements_resume_par_dossier(array $idsDossiers): array
     }
 
     return $out;
+}
+
+
+/**
+ * Mettre un équipement en panne.
+ *
+ * Cette fonction met à jour l'état de l'équipement
+ * et le passe à "en_panne".
+ */
+function equipement_set_panne(int $idEquipement): bool
+{
+    $pdo = db();
+
+    $sql = "
+        UPDATE EQUIPEMENT
+        SET etatEquipement = 'en_panne'
+        WHERE idEquipement = :id
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+
+    return $stmt->execute([
+        ':id' => $idEquipement
+    ]);
+}
+
+
+/**
+ * Vérifie si l'équipement est réservable.
+ *
+ * Un équipement est réservable uniquement
+ * si son état est "disponible".
+ */
+function equipement_is_reservable(int $idEquipement): bool
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT etatEquipement
+        FROM EQUIPEMENT
+        WHERE idEquipement = :id
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':id' => $idEquipement
+    ]);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $etat = (string)($row['etatEquipement'] ?? '');
+
+    return ($etat === 'disponible');
+}
+
+
+/**
+ * Retourne l'état actuel de l'équipement.
+ *
+ * Utile pour afficher un message d'erreur clair
+ * dans l'interface utilisateur.
+ */
+function equipement_get_etat(int $idEquipement): string
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT etatEquipement
+        FROM EQUIPEMENT
+        WHERE idEquipement = :id
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':id' => $idEquipement
+    ]);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return (string)($row['etatEquipement'] ?? '');
 }

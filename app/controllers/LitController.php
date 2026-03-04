@@ -11,56 +11,76 @@ declare(strict_types=1);
   - Appeler les fonctions du Model
   - Afficher la View
 */
-
+require_once APP_PATH . '/includes/auth_guard.php';
 require_once __DIR__ . '/../models/LitModel.php';
 require_once __DIR__ . '/../models/DossierModel.php';
 
 /**
- * Tableau de bord des lits (infirmier accueil)
- * - stats par état (disponible / occupé / réservé / HS)
- * - calcul du taux d'occupation
- * - message d'alerte si peu ou pas de lits disponibles
+ * Tableau de bord des lits (infirmier d'accueil)
+ * - Récupère le service depuis le personnel connecté
+ * - Calcule les stats (disponible / occupé / réservé / HS)
+ * - Calcule le taux d’occupation
+ * - Affiche un message d’alerte si peu de lits disponibles
  */
 function lits_dashboard(): void
 {
-    // 1) Sécurité : utilisateur connecté
+    // =========================
+    // 1) Sécurité : session
+    // =========================
     $user = $_SESSION['user'] ?? null;
     if (!$user) {
+        // Non connecté -> retour au login
         header('Location: index.php?action=login_form');
         exit;
     }
 
-    // On prend le service du dossier (pas de l'utilisateur)
-    $dossier = getDossierById($idDossier);
-    $idService = (int)($dossier['idService'] ?? 0);
+    // =========================
+    // 2) Sécurité : rôle
+    // =========================
+    // Seul l'infirmier d'accueil peut voir ce dashboard
+    requireRole('INFIRMIER_ACCUEIL');
 
-    // 3) Variables pour la view
+    // =========================
+    // 3) Déterminer le service
+    // =========================
+    // On récupère l'idService via l'idPersonnel de l'utilisateur connecté.
+    $idPersonnel = (int)($user['idPersonnel'] ?? 0);
+    $idService   = $idPersonnel > 0 ? (int)(getServiceIdByPersonnel($idPersonnel) ?? 0) : 0;
+
+    // =========================
+    // 4) Variables pour la vue
+    // =========================
     $error = '';
     $stats = [];
     $lits  = [];
 
-    $nbDisponible = 0;
-    $nbOccupe     = 0;
-    $nbReserve    = 0;
-    $nbHs         = 0;
-    $totalLits    = 0;
-    $tauxOccupation = 0;
+    $nbDisponible    = 0;
+    $nbOccupe        = 0;
+    $nbReserve       = 0;
+    $nbHs            = 0;
+    $totalLits       = 0;
+    $tauxOccupation  = 0;
 
-    $alertLevel   = '';
-    $alertMessage = '';
+    $alertLevel      = '';
+    $alertMessage    = '';
 
-    // Si on ne trouve pas le service, on affiche la page avec une erreur
-    if (!$idService) {
+    // Si pas de service -> on affiche une erreur propre
+    if ($idService <= 0) {
         $error = "Service introuvable pour cet utilisateur.";
         require __DIR__ . '/../views/lits/dashboard_infirmier_accueil.php';
         return;
     }
 
-    // 4) Récupération des données (Model)
+    // =========================
+    // 5) Récupération des données (Model)
+    // =========================
     $stats = getLitStatsByService($idService);
     $lits  = getLitsByService($idService);
 
-    // 5) Transformer les stats en tableau simple : $map['etat'] = nb
+    // =========================
+    // 6) Mise en forme des stats
+    // =========================
+    // Transformer le résultat SQL en map : $map['etat'] = nb
     $map = [];
     foreach ($stats as $s) {
         $etat = (string)($s['etatLit'] ?? '');
@@ -72,22 +92,27 @@ function lits_dashboard(): void
     $nbOccupe     = $map['occupe'] ?? 0;
     $nbReserve    = $map['reserve'] ?? 0;
 
-    // HS : on accepte plusieurs libellés (selon les données existantes)
+    // HS : accepter plusieurs libellés selon les données
     $nbHs  = 0;
     $nbHs += $map['hs'] ?? 0;
     $nbHs += $map['HS'] ?? 0;
     $nbHs += $map['en_panne'] ?? 0;
     $nbHs += $map['maintenance'] ?? 0;
 
-    // Total
+    // Total lits
     $totalLits = $nbDisponible + $nbOccupe + $nbReserve + $nbHs;
 
-    // Taux d'occupation (occupé + réservé)
+    // =========================
+    // 7) Calcul du taux d’occupation
+    // =========================
+    // On considère "occupé + réservé" comme non disponible
     if ($totalLits > 0) {
         $tauxOccupation = (int) round((($nbOccupe + $nbReserve) / $totalLits) * 100);
     }
 
-    // 6) Message d'alerte simple (pour l'infirmier accueil)
+    // =========================
+    // 8) Message d’alerte simple
+    // =========================
     if ($nbDisponible === 0) {
         $alertLevel = 'danger';
         $alertMessage = "Aucun lit disponible : envisager l'attente ou une demande de transfert.";
@@ -96,7 +121,9 @@ function lits_dashboard(): void
         $alertMessage = "Peu de lits disponibles : prioriser selon le niveau de gravité (triage).";
     }
 
-    // 7) Affichage
+    // =========================
+    // 9) Affichage de la vue
+    // =========================
     require __DIR__ . '/../views/lits/dashboard_infirmier_accueil.php';
 }
 

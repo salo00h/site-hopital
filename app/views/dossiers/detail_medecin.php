@@ -1,134 +1,201 @@
 <?php
 declare(strict_types=1);
 
-/*
-  Vue Médecin : détail dossier + actions (examen / transfert / équipement)
-  Objectif : afficher les infos du dossier + proposer des liens d'actions (MVC).
-  + Afficher la liste des équipements réservés pour ce dossier (UNIQUEMENT côté médecin).
-*/
-
 require_once APP_PATH . '/includes/header.php';
 require_once APP_PATH . '/includes/sidebar.php';
 
-/* Sécurité : si la variable $dossier n'existe pas, on utilise un tableau vide */
 $dossier = $dossier ?? [];
-
-/* Id du dossier (converti en int pour éviter les injections via l’URL/paramètres) */
 $idDossier = (int)($dossier['idDossier'] ?? 0);
 
-/*
-  Équipements réservés :
-  Le contrôleur dossier_detail_medecin() doit préparer $equipementsReserves
-  via gestion_equipements_by_dossier($idDossier).
-  Ici, on sécurise au cas où la variable n'est pas définie.
-*/
 $equipementsReserves = $equipementsReserves ?? [];
+$examens = $examens ?? [];
+$transferts = $transferts ?? [];
 
-/* Helper d'échappement HTML (anti XSS). */
+// Helper XSS
 $h = static function (mixed $v): string {
     return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
 };
 
-/* Flash message : lecture puis suppression de la session. */
-function flash(string $key): string
-{
-    if (empty($_SESSION[$key])) {
-        return '';
-    }
-    $msg = (string)$_SESSION[$key];
-    unset($_SESSION[$key]);
-    return $msg;
-}
+// Flash messages (session)
+$flashSuccess = '';
+$flashError = '';
 
-$flashSuccess = flash('flash_success');
-$flashError   = flash('flash_error');
+if (!empty($_SESSION['flash_success'])) {
+    $flashSuccess = (string)$_SESSION['flash_success'];
+    unset($_SESSION['flash_success']);
+}
+if (!empty($_SESSION['flash_error'])) {
+    $flashError = (string)$_SESSION['flash_error'];
+    unset($_SESSION['flash_error']);
+}
 ?>
 
-<main>
-    <h2>Dossier patient - Médecin</h2>
+<h1 class="page-title">Dossier patient - Médecin</h1>
 
-    <?php if ($flashSuccess !== ''): ?>
-        <p><?= $h($flashSuccess) ?></p>
-    <?php endif; ?>
+<?php if ($flashSuccess !== ''): ?>
+  <div class="alert alert-success"><?= $h($flashSuccess) ?></div>
+<?php endif; ?>
 
-    <?php if ($flashError !== ''): ?>
-        <p><?= $h($flashError) ?></p>
-    <?php endif; ?>
+<?php if ($flashError !== ''): ?>
+  <div class="alert alert-danger"><?= $h($flashError) ?></div>
+<?php endif; ?>
 
-    <h3>Informations</h3>
-    <p><b>Nom :</b> <?= $h($dossier['nom'] ?? '') ?></p>
-    <p><b>Prénom :</b> <?= $h($dossier['prenom'] ?? '') ?></p>
-    <p><b>ID Patient :</b> <?= $h($dossier['idPatient'] ?? '') ?></p>
-    <p><b>Motif :</b> <?= $h($dossier['motifAdmission'] ?? '') ?></p>
-    <p><b>Date admission :</b> <?= $h($dossier['dateAdmission'] ?? '') ?></p>
-    <p><b>Lit attribué :</b> <?= $h($dossier['numeroLit'] ?? 'Non attribué') ?></p>
+<!-- =========================
+     INFOS DOSSIER
+========================= -->
+<div class="card">
+  <h2 class="card-title">Informations</h2>
 
-    <hr>
+  <table class="table">
+    <tbody>
+      <tr>
+        <th style="width:220px;">Nom</th>
+        <td><?= $h($dossier['nom'] ?? '') ?></td>
+      </tr>
+      <tr>
+        <th>Prénom</th>
+        <td><?= $h($dossier['prenom'] ?? '') ?></td>
+      </tr>
+      <tr>
+        <th>ID Patient</th>
+        <td><?= $h($dossier['idPatient'] ?? '') ?></td>
+      </tr>
+      <tr>
+        <th>Motif</th>
+        <td><?= $h($dossier['motifAdmission'] ?? '') ?></td>
+      </tr>
+      <tr>
+        <th>Date admission</th>
+        <td><?= $h($dossier['dateAdmission'] ?? '') ?></td>
+      </tr>
+      <tr>
+        <th>Lit attribué</th>
+        <td><?= $h($dossier['numeroLit'] ?? 'Non attribué') ?></td>
+      </tr>
+    </tbody>
+  </table>
 
-    <!-- Bloc d'actions (liens) -->
-    <div class="dossier-actions">
-        <a class="btn-action" href="index.php?action=dossiers_list">← Retour liste</a>
+  <div class="actions">
+    <a class="btn" href="index.php?action=dossiers_list">← Retour liste</a>
 
-        <a class="btn-action btn-primary"
-           href="index.php?action=dossier_edit_form&id=<?= $idDossier ?>">
-           Modifier dossier
-        </a>
+    <a class="btn btn-primary" href="index.php?action=dossier_edit_form&id=<?= $idDossier ?>">
+      Modifier dossier
+    </a>
 
-        <a class="btn-action"
-           href="index.php?action=dossier_demander_examen&id=<?= $idDossier ?>">
-           Demander examen
-        </a>
+    <a class="btn" href="index.php?action=examen_form&idDossier=<?= $idDossier ?>">
+      Demander examen
+    </a>
 
-        <a class="btn-action"
-           href="index.php?action=dossier_demander_transfert&id=<?= $idDossier ?>">
-           Demander transfert
-        </a>
+    <a class="btn" href="index.php?action=transfert_form&idDossier=<?= $idDossier ?>">
+      Demander transfert
+    </a>
 
-        <a class="btn-action"
-           href="index.php?action=equipements_list_medecin&idDossier=<?= $idDossier ?>">
-           Réserver équipement
-        </a>
-    </div>
+    <a class="btn" href="index.php?action=equipements_list_medecin&idDossier=<?= $idDossier ?>">
+      Réserver équipement
+    </a>
+  </div>
+</div>
 
-    <hr>
+<!-- =========================
+     EQUIPEMENTS 
+========================= -->
+<div class="card">
+  <h2 class="card-title">Équipements réservés</h2>
 
-    <!-- =========================================================
-         Section médecin : équipements réservés pour ce dossier
-         Pourquoi ?
-         - Visualiser rapidement quels équipements sont déjà associés au dossier
-         - Améliorer le suivi (traçabilité) côté médecin
-    ========================================================== -->
-    <div class="card">
-        <h3>Équipements réservés</h3>
+  <?php if (empty($equipementsReserves)): ?>
+    <p>Aucun équipement réservé pour ce dossier.</p>
+  <?php else: ?>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Numéro</th>
+          <th>Localisation</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($equipementsReserves as $eq): ?>
+          <tr>
+            <td><?= $h($eq['typeEquipement'] ?? '') ?></td>
+            <td><?= (int)($eq['numeroEquipement'] ?? 0) ?></td>
+            <td><?= !empty($eq['localisation']) ? $h($eq['localisation']) : '-' ?></td>
+            <td><?= $h($eq['etatEquipement'] ?? '') ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
 
-        <?php if (empty($equipementsReserves)): ?>
-            <p>Aucun équipement réservé pour ce dossier.</p>
-        <?php else: ?>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Numéro</th>
-                        <th>Localisation</th>
-                        <th>Statut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($equipementsReserves as $eq): ?>
-                        <tr>
-                            <td><?= $h($eq['typeEquipement'] ?? '') ?></td>
-                            <td><?= (int)($eq['numeroEquipement'] ?? 0) ?></td>
-                            <td><?= !empty($eq['localisation']) ? $h($eq['localisation']) : '-' ?></td>
-                            <td><?= $h($eq['etatEquipement'] ?? '') ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
-    </div>
+<!-- =========================
+     EXAMENS 
+========================= -->
+<div class="card">
+  <h2 class="card-title">Demandes d'examens</h2>
 
-    <!-- Note :
-         Ne pas dupliquer cette section côté infirmier (demande du cahier des charges). -->
-</main>
+  <?php if (empty($examens)): ?>
+    <p>Aucune demande d'examen pour ce dossier.</p>
+  <?php else: ?>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Note</th>
+          <th>Date</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($examens as $e): ?>
+          <tr>
+            <td><?= (int)($e['idExamen'] ?? 0) ?></td>
+            <td><?= $h($e['typeExamen'] ?? '') ?></td>
+            <td><?= $h($e['noteMedecin'] ?? '') ?></td>
+            <td><?= $h($e['dateDemande'] ?? '') ?></td>
+            <td><?= $h($e['statut'] ?? '') ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
+<!-- =========================
+     TRANSFERTS 
+========================= -->
+<div class="card">
+  <h2 class="card-title">Demandes de transfert</h2>
+
+  <?php if (empty($transferts)): ?>
+    <p>Aucune demande de transfert pour ce patient.</p>
+  <?php else: ?>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Date création</th>
+          <th>Statut</th>
+          <th>Hôpital destinataire</th>
+          <th>Service</th>
+          <th>Date transfert</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($transferts as $t): ?>
+          <tr>
+            <td><?= (int)($t['idTransfer'] ?? 0) ?></td>
+            <td><?= $h($t['dateCreation'] ?? '') ?></td>
+            <td><?= $h($t['statutTransfer'] ?? '') ?></td>
+            <td><?= $h($t['hopitalDestinataire'] ?? '') ?></td>
+            <td><?= $h($t['serviceDestinataire'] ?? '-') ?></td>
+            <td><?= $h($t['dateTransfer'] ?? '-') ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
 
 <?php require_once APP_PATH . '/includes/footer.php'; ?>

@@ -1,8 +1,24 @@
 USE filrouge;
 
--- HOPITAL
+-- HOPITAUX (données de test)
+
 INSERT INTO hopital (nom, adresse, ville, region, capaciteTotalLit, capaciteTotalEquipement)
-VALUES ('Hopital Central', '1 Rue de la Paix', 'Lyon', 'Auvergne-Rhone-Alpes', 50, 50);
+VALUES
+('Hopital Central', '1 Rue de la Paix', 'Lyon', 'Auvergne-Rhone-Alpes', 50, 50),
+
+('Hopital Saint Joseph', '12 Avenue Victor Hugo', 'Paris', 'Ile-de-France', 120, 80),
+
+('Hopital Nord', '5 Boulevard des Alpes', 'Grenoble', 'Auvergne-Rhone-Alpes', 90, 60),
+
+('Hopital Sud', '22 Rue Marseille', 'Marseille', 'Provence-Alpes-Cote d''Azur', 110, 70),
+
+('Hopital Universitaire', '3 Rue Pasteur', 'Strasbourg', 'Grand Est', 150, 120),
+
+('Hopital Regional', '45 Rue de Bordeaux', 'Bordeaux', 'Nouvelle-Aquitaine', 130, 90),
+
+('Hopital Ouest', '18 Rue de Rennes', 'Rennes', 'Bretagne', 80, 55),
+
+('Hopital Mediterranee', '7 Avenue Nice', 'Nice', 'Provence-Alpes-Cote d''Azur', 95, 65);
 
 -- SERVICE
 INSERT INTO service (idHopital, nom, typeService, capaciteLit, capaciteEquipement)
@@ -53,3 +69,14 @@ INSERT INTO users (idPersonnel, username, password_hash, role, is_active) VALUES
 (1, 'accueil',    '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'INFIRMIER_ACCUEIL', 1),
 (2, 'medecin',    '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'MEDECIN', 1),
 (3, 'technicien', '$2y$12$THUrwXqIvyh1PznXfyQNk.RPD/xIQt9DJhMnDBQ9xjpaHOEV.b0sm', 'TECHNICIEN', 1);
+
+
+
+-- Types d'examens utilisés pour les tests
+
+INSERT INTO type_examen (libelle) VALUES
+('Radiographie'),
+('Scanner'),
+('IRM'),
+('Analyse de sang'),
+('Échographie');

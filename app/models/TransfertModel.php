@@ -1,72 +1,172 @@
 <?php
 declare(strict_types=1);
 
-// ===============================
-// TRANSFERT MODEL
-// ===============================
-// Rôle : gérer les demandes de transfert (INSERT / SELECT simple)
-// Style : simple (prof), PDO + requêtes préparées
+/*
+==================================================
+ MODEL : TransfertModel
+==================================================
+ Rôle :
+ - Requêtes SQL liées aux transferts inter-hôpitaux.
+ - Aucune logique métier / affichage ici.
+==================================================
+*/
 
 require_once APP_PATH . '/config/database.php';
 
-/**
- * تعديل سهل إذا أسماء الجدول/الأعمدة تختلف عندك
- */
-const TRANSFERT_TABLE = 'TRANSFERT';
-
-// أسماء الأعمدة كما عندك (عدّلها فقط إذا تختلف)
-const COL_ID_DOSSIER     = 'idDossier';
-const COL_HOPITAL_CIBLE  = 'hopitalCible';
-const COL_MOTIF          = 'motif';
-const COL_DATE_DEMANDE   = 'dateDemande';
-const COL_STATUT         = 'statut';
-
-// قيم الحالة (عدّلها إذا عندك ENUM مختلف)
-const STATUT_EN_ATTENTE_VALIDATION = 'EN_ATTENTE_VALIDATION';
+const TRANSFERT_TABLE = 'transfert_patient';
 
 /**
- * إنشاء طلب تحويل (Demande de transfert)
+ * Créer une demande de transfert (Médecin).
+ * statutTransfer par défaut: 'demande'
  */
-function transfert_create(int $idDossier, string $hopitalCible, string $motif): bool
-{
+function transfert_create_patient(
+    int $idPatient,
+    int $idHopitalSource,
+    string $hopitalDestinataire,
+    ?string $serviceDestinataire = null
+): bool {
     $pdo = db();
 
     $sql = "
         INSERT INTO " . TRANSFERT_TABLE . " 
-        (" . COL_ID_DOSSIER . ", " . COL_HOPITAL_CIBLE . ", " . COL_MOTIF . ", " . COL_DATE_DEMANDE . ", " . COL_STATUT . ")
+            (idPatient, idHopital, dateCreation, statutTransfer, hopitalDestinataire, serviceDestinataire)
         VALUES
-        (:idDossier, :hopitalCible, :motif, NOW(), :statut)
+            (:idPatient, :idHopital, NOW(), 'demande', :hopitalDestinataire, :serviceDestinataire)
     ";
 
     $stmt = $pdo->prepare($sql);
 
     return $stmt->execute([
-        ':idDossier'    => $idDossier,
-        ':hopitalCible' => $hopitalCible,
-        ':motif'        => $motif,
-        ':statut'       => STATUT_EN_ATTENTE_VALIDATION,
+        ':idPatient'           => $idPatient,
+        ':idHopital'           => $idHopitalSource,
+        ':hopitalDestinataire' => $hopitalDestinataire,
+        ':serviceDestinataire' => $serviceDestinataire,
     ]);
 }
 
 /**
- * (اختياري) جلب آخر طلب تحويل مرتبط بدوسيي معيّن
- * مفيد إذا تريد تعرض الطلب للطبيب/الممرض داخل detail.
+ * Récupérer l'historique des transferts d'un patient.
  */
-function transfert_find_by_dossier(int $idDossier): ?array
+function transferts_get_by_patient(int $idPatient): array
 {
     $pdo = db();
 
     $sql = "
         SELECT *
         FROM " . TRANSFERT_TABLE . "
-        WHERE " . COL_ID_DOSSIER . " = :idDossier
-        ORDER BY " . COL_DATE_DEMANDE . " DESC
+        WHERE idPatient = :idPatient
+        ORDER BY dateCreation DESC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':idPatient' => $idPatient]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Liste des demandes en attente (Directeur).
+ * Ici on prend 'demande' et/ou 'attente_reponse' حسب اختيارك.
+ */
+function transferts_get_pending(): array
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT *
+        FROM " . TRANSFERT_TABLE . "
+        WHERE statutTransfer IN ('demande', 'attente_reponse')
+        ORDER BY dateCreation DESC
+    ";
+
+    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Mettre à jour le statut d'un transfert (Directeur).
+ * Valeurs possibles: 'accepte' ou 'refuse' (ou 'termine').
+ */
+function transfert_update_statut(int $idTransfer, string $newStatut): bool
+{
+    $pdo = db();
+
+    $sql = "
+        UPDATE " . TRANSFERT_TABLE . "
+        SET statutTransfer = :statut
+        WHERE idTransfer = :id
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':idDossier' => $idDossier]);
+
+    return $stmt->execute([
+        ':statut' => $newStatut,
+        ':id'     => $idTransfer,
+    ]);
+}
+
+/**
+ * (Optionnel) Récupérer un transfert par ID.
+ */
+function transfert_get_by_id(int $idTransfer): ?array
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT *
+        FROM " . TRANSFERT_TABLE . "
+        WHERE idTransfer = :id
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':id' => $idTransfer]);
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ? $row : null;
+    return $row ?: null;
+}
+
+
+function hopitaux_get_all(): array
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT idHopital, nom, ville
+        FROM hopital
+        ORDER BY nom ASC
+    ";
+
+    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+function transferts_count_by_patients(array $idsPatients): array
+{
+    if (empty($idsPatients)) {
+        return [];
+    }
+
+    $pdo = db();
+
+    $in = implode(',', array_fill(0, count($idsPatients), '?'));
+
+    $sql = "
+        SELECT idPatient, COUNT(*) AS nb
+        FROM transfert_patient
+        WHERE idPatient IN ($in)
+        GROUP BY idPatient
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($idsPatients);
+
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $result = [];
+    foreach ($rows as $r) {
+        $result[(int)$r['idPatient']] = (int)$r['nb'];
+    }
+
+    return $result;
 }

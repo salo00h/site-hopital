@@ -23,6 +23,7 @@ function abort(int $status, string $message): void
 {
     http_response_code($status);
     echo $message;
+    exit;
 }
 
 function requirePost(): bool
@@ -44,42 +45,36 @@ function getStrParam(string $key, string $default = ''): string
     return trim((string)($_REQUEST[$key] ?? $default));
 }
 
-/**
- * Liste des dossiers (avec recherche simple via ?q=...)
- */
-/**
- * Affiche la liste des dossiers.
- * Pour le rôle MEDECIN uniquement :
- * on récupère un résumé des équipements associés
- * afin de les afficher dans la liste.
- */
 function dossiers_list(): void
 {
-    // Récupération du filtre de recherche
     $q = getStrParam('q', '');
-
-    // Récupération des dossiers depuis le Model
     $dossiers = getAllDossiers($q);
 
-    // Initialisation du résumé des équipements
+    // Par défaut : utile si rôle ≠ MEDECIN
     $equipementsResume = [];
+    $examensCount = [];
+    $transfertsCount = [];
 
-    // Uniquement pour le MEDECIN : afficher les équipements liés
     if (($_SESSION['user']['role'] ?? '') === 'MEDECIN') {
-
         require_once APP_PATH . '/models/EquipementModel.php';
+        require_once APP_PATH . '/models/TransfertModel.php';
 
-        // Extraction des idDossier pour requête groupée
-        $ids = array_map(
+        $idsDossiers = array_map(
             static fn($d) => (int)$d['idDossier'],
             $dossiers
         );
 
-        // Récupération des équipements associés à chaque dossier
-        $equipementsResume = equipements_resume_par_dossier($ids);
+        $equipementsResume = equipements_resume_par_dossier($idsDossiers);
+        $examensCount = examens_count_by_dossiers($idsDossiers);
+
+        $idsPatients = array_values(array_unique(array_filter(array_map(
+            static fn($d) => (int)($d['idPatient'] ?? 0),
+            $dossiers
+        ))));
+
+        $transfertsCount = transferts_count_by_patients($idsPatients);
     }
 
-    // Envoi des données à la vue
     require __DIR__ . '/../views/dossiers/liste.php';
 }
 
@@ -91,13 +86,11 @@ function dossier_detail(): void
     $id = getIntParam('id', 0);
     if ($id <= 0) {
         abort(400, "ID dossier invalide");
-        return;
     }
 
     $dossier = getDossierById($id);
     if (!$dossier) {
         abort(404, "Dossier introuvable");
-        return;
     }
 
     require __DIR__ . '/../views/dossiers/detail_infirmier.php';
@@ -111,13 +104,11 @@ function dossier_edit_form(): void
     $id = getIntParam('id', 0);
     if ($id <= 0) {
         abort(400, "ID dossier invalide");
-        return;
     }
 
     $dossier = getDossierById($id);
     if (!$dossier) {
         abort(404, "Dossier introuvable");
-        return;
     }
 
     $error = "";
@@ -138,7 +129,6 @@ function dossier_update(): void
 
     if ($idDossier <= 0 || $idPatient <= 0) {
         abort(400, "IDs invalides");
-        return;
     }
 
     // Champs obligatoires patient
@@ -210,14 +200,11 @@ function dossier_update(): void
 
 /**
  * ==============================
- * Affichage du formulaire de création
+ * Formulaire de création (infirmier)
  * ==============================
- * - Accessible uniquement par l'infirmier
- * - Le médecin n'a pas le droit de créer un dossier
  */
 function dossier_create_form(): void
 {
-    // Sécurité : seul le rôle INFIRMIER peut accéder
     requireRole('INFIRMIER_ACCUEIL');
 
     $error = '';
@@ -226,26 +213,19 @@ function dossier_create_form(): void
 
 /**
  * ==============================
- * Traitement de la création d'un dossier (POST)
+ * Création d'un dossier (POST)
  * ==============================
- * - Vérifie le rôle utilisateur
- * - Vérifie les champs obligatoires
- * - Crée le patient puis le dossier (transaction)
  */
 function dossier_create(): void
 {
-    // Sécurité : seul l'infirmier peut créer
     requireRole('INFIRMIER_ACCUEIL');
 
-    // Vérifie que la requête est bien en POST
     if (!requirePost()) {
         header('Location: index.php?action=dossier_create_form');
         exit;
     }
 
-    /* =========================================
-       1) Récupération des données du patient
-    ========================================== */
+    // 1) Données patient
     $patient = [
         'nom'               => getStrParam('nom'),
         'prenom'            => getStrParam('prenom'),
@@ -258,19 +238,13 @@ function dossier_create(): void
         'mutuelle'          => getStrParam('mutuelle'),
     ];
 
-    // Vérification des champs obligatoires
-    if ($patient['nom'] === '' ||
-        $patient['prenom'] === '' ||
-        $patient['dateNaissance'] === '') {
-
+    if ($patient['nom'] === '' || $patient['prenom'] === '' || $patient['dateNaissance'] === '') {
         $error = "Nom, prénom et date de naissance sont obligatoires.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
-    /* =========================================
-       2) Récupération des données du dossier
-    ========================================== */
+    // 2) Données dossier
     $dossier = [
         'idHopital'         => getIntParam('idHopital', 0),
         'dateAdmission'     => getStrParam('dateAdmission', date('Y-m-d')),
@@ -286,27 +260,21 @@ function dossier_create(): void
         'idTransfert'       => getIntParam('idTransfert', 0),
     ];
 
-    // Vérification minimale
     if ($dossier['idHopital'] <= 0) {
         $error = "idHopital manquant.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
-    /* =========================================
-       3) Création en base (transaction sécurisée)
-       - Création du patient
-       - Création du dossier lié
-    ========================================== */
     $newDossierId = createPatientAndDossier($patient, $dossier);
 
-    // Redirection vers le détail du dossier
     header('Location: index.php?action=dossier_detail&id=' . $newDossierId);
     exit;
 }
-// ===============================
-// ACTIONS MEDECIN
-// ===============================
+
+/* ==================================================
+   ACTIONS MEDECIN
+================================================== */
 
 function dossier_detail_medecin(): void
 {
@@ -315,19 +283,24 @@ function dossier_detail_medecin(): void
     $idDossier = getIntParam('id', 0);
     if ($idDossier <= 0) {
         abort(400, "Paramètre id invalide.");
-        return;
     }
 
     $dossier = getDossierById($idDossier);
     if (!$dossier) {
         abort(404, "Dossier introuvable.");
-        return;
     }
 
     require_once APP_PATH . '/models/EquipementModel.php';
 
-    // Récupération des équipements liés au dossier pour affichage dans la vue
+    // Équipements réservés pour ce dossier
     $equipementsReserves = gestion_equipements_by_dossier($idDossier);
+
+    // Examens demandés pour ce dossier
+    $examens = examens_get_by_dossier($idDossier);
+
+    //  Transferts du patient (historique)
+    $idPatient = (int)($dossier['idPatient'] ?? 0);
+    $transferts = ($idPatient > 0) ? transferts_get_by_patient($idPatient) : [];
 
     require APP_PATH . '/views/dossiers/detail_medecin.php';
 }
@@ -350,10 +323,18 @@ function dossier_demander_examen(): void
         exit;
     }
 
-    $ok = examen_create($idDossier, $typeExamen, $noteMedecin);
+    // Si vide => NULL (أفضل في DB)
+    $note = ($noteMedecin === '') ? null : $noteMedecin;
 
-    $_SESSION['flash_success'] = $ok ? "Examen demandé avec succès." : "";
-    $_SESSION['flash_error']   = $ok ? "" : "Erreur lors de la demande d'examen.";
+    $ok = examen_create($idDossier, $typeExamen, $note);
+
+    if ($ok) {
+        $_SESSION['flash_success'] = "Examen demandé avec succès.";
+        $_SESSION['flash_error'] = "";
+    } else {
+        $_SESSION['flash_success'] = "";
+        $_SESSION['flash_error'] = "Erreur lors de la demande d'examen.";
+    }
 
     header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
     exit;
@@ -379,8 +360,13 @@ function dossier_demander_transfert(): void
 
     $ok = transfert_create($idDossier, $hopitalCible, $motif);
 
-    $_SESSION['flash_success'] = $ok ? "Demande de transfert envoyée." : "";
-    $_SESSION['flash_error']   = $ok ? "" : "Erreur lors de la demande de transfert.";
+    if ($ok) {
+        $_SESSION['flash_success'] = "Demande de transfert envoyée.";
+        $_SESSION['flash_error'] = "";
+    } else {
+        $_SESSION['flash_success'] = "";
+        $_SESSION['flash_error'] = "Erreur lors de la demande de transfert.";
+    }
 
     header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
     exit;

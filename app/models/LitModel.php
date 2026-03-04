@@ -113,12 +113,33 @@ function getAvailableLits(int $idService): array
 }
 
 /**
+ * Retourne les lits disponibles d'un hôpital (tous services confondus).
+ * On passe par la table SERVICE pour filtrer par idHopital.
+ *
+ */
+function getAvailableLitsByHopital(int $idHopital): array
+{
+    $sql = "
+        SELECT l.idLit, l.numeroLit
+        FROM LIT l
+        JOIN SERVICE s ON s.idService = l.idService
+        WHERE s.idHopital = ?
+          AND l.etatLit = 'disponible'
+        ORDER BY l.numeroLit
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute([$idHopital]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+/**
  * Réserve un lit pour un dossier (transaction).
  */
 function reserveLitForDossier(
     int $idLit,
     int $idDossier,
-    int $idInfirmier,
+    ?int $idInfirmier,
     string $dateDebut,
     string $dateFin
 ): void {
@@ -175,14 +196,15 @@ function reserveLitForDossier(
 
 /**
  * Retourne des statistiques globales sur les lits.
- * On compte les lits "disponible" et les lits "occupe".
+ * Pour le médecin :
+ * - "Occupés" = lits non disponibles = occupe + reserve
  */
 function lits_get_stats(): array
 {
     $sql = "
         SELECT
             SUM(CASE WHEN etatLit = 'disponible' THEN 1 ELSE 0 END) AS disponibles,
-            SUM(CASE WHEN etatLit = 'occupe' THEN 1 ELSE 0 END) AS occupes
+            SUM(CASE WHEN etatLit IN ('occupe', 'reserve') THEN 1 ELSE 0 END) AS occupes
         FROM LIT
     ";
 

@@ -121,11 +121,14 @@ $dossierSelected = ($idDossier > 0);
 
                             <?php endif; ?>
 
-                            <!-- Signalement panne toujours possible -->
+                            <?php if ($status !== 'en_panne'): ?>
                             <a class="btn"
-                               href="index.php?action=equipement_signaler_panne&id=<?= (int)$eq['idEquipement'] ?>">
-                                Signaler panne
+                              href="index.php?action=equipement_signaler_panne&id=<?= (int)$eq['idEquipement'] ?>">
+                              Signaler panne
                             </a>
+                            <?php else: ?>
+                            <button class="btn" disabled>Déjà en panne</button>
+                            <?php endif; ?>
 
                         </td>
                     </tr>

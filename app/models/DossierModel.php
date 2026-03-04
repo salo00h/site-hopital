@@ -281,3 +281,36 @@ function dossiers_get_recent(int $limit = 5): array
 
     return $stmt->fetchAll() ?: [];
 }
+
+/**
+ * Retourne le nombre de demandes d'examens par dossier.
+ * @param int[] $idsDossiers
+ * @return array<int,int> [idDossier => nbExamens]
+ */
+function examens_count_by_dossiers(array $idsDossiers): array
+{
+    $idsDossiers = array_values(array_unique(array_map('intval', $idsDossiers)));
+    $idsDossiers = array_values(array_filter($idsDossiers, static fn(int $id): bool => $id > 0));
+
+    if (empty($idsDossiers)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($idsDossiers), '?'));
+
+    $sql = "
+        SELECT idDossier, COUNT(*) AS nb
+        FROM examen
+        WHERE idDossier IN ($placeholders)
+        GROUP BY idDossier
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute($idsDossiers);
+
+    $map = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $map[(int)$row['idDossier']] = (int)$row['nb'];
+    }
+    return $map;
+}

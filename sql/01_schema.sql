@@ -61,7 +61,6 @@ CREATE TABLE DOSSIER_PATIENT (
     antecedant TEXT,
     etat_entree TEXT,
     diagnostic TEXT,
-    examen TEXT,
     traitements TEXT,
     statut ENUM('ouvert', 'attente_consultation', 'consultation', 'attente_examen', 'attente_resultat', 'transfert', 'ferme') NOT NULL,
     niveau ENUM('1', '2', '3', '4', '5') NOT NULL,
@@ -312,3 +311,48 @@ CREATE TABLE USERS (
   UNIQUE (username),
   FOREIGN KEY (idPersonnel) REFERENCES PERSONNEL(idPersonnel) ON UPDATE CASCADE
 );
+
+
+
+
+-- Nous avons ajouté la table EXAMEN car dans la base de données initiale
+-- il n’existait pas de table pour enregistrer les demandes d’examen.
+-- Il y avait seulement un champ "examen" dans la table DOSSIER_PATIENT.
+-- Mais pour permettre au médecin de créer plusieurs demandes d’examen
+-- (avec date et statut), nous avons créé une table séparée EXAMEN.
+
+CREATE TABLE IF NOT EXISTS EXAMEN (
+  idExamen INT AUTO_INCREMENT PRIMARY KEY,
+  idDossier TINYINT NOT NULL,
+  typeExamen VARCHAR(80) NOT NULL,
+  noteMedecin TEXT,
+  dateDemande DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  statut ENUM('EN_ATTENTE', 'EN_COURS', 'TERMINE', 'ANNULE') NOT NULL DEFAULT 'EN_ATTENTE',
+  FOREIGN KEY (idDossier) REFERENCES DOSSIER_PATIENT(idDossier)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+
+-- =====================================================
+-- AJOUT : TABLE TYPE_EXAMEN
+-- Objectif :
+-- Nous avons ajouté cette table pour stocker la liste
+-- des types d'examens dans la base de données.
+--
+-- Avant : les types d'examens étaient écrits directement
+-- dans le code PHP (dans le <select>).
+--
+-- Problème : ce n'était pas propre ni maintenable.
+--
+-- Solution : créer une table TYPE_EXAMEN et insérer
+-- les valeurs dans 02_insert_test.sql.
+-- Ainsi le formulaire récupère les types depuis la BDD.
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS type_examen (
+  idType INT AUTO_INCREMENT PRIMARY KEY,
+  libelle VARCHAR(80) NOT NULL UNIQUE
+);
+
+
