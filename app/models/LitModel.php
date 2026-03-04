@@ -11,6 +11,7 @@ declare(strict_types=1);
 */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/_tables.php';
 
 /**
  * Retourne une valeur entière d'un champ (ou null).
