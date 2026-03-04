@@ -9,6 +9,7 @@ declare(strict_types=1);
 // mais ne contient aucune logique d’affichage.
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/_tables.php';
 
 // Recherche un utilisateur actif par son username.
 // Retourne les informations de l’utilisateur si trouvé,
