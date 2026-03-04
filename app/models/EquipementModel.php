@@ -9,6 +9,9 @@ declare(strict_types=1);
  - Contenir uniquement les requêtes SQL liées aux équipements.
  - Aucune logique métier ou affichage ici.
  - Le contrôleur appelle ces fonctions.
+ - Utilisation des constantes de tables (_tables.php)
+   pour éviter les problèmes de majuscules/minuscules
+   entre Windows et Linux (Render / Railway).
 ==================================================
 */
 
@@ -30,7 +33,7 @@ function equipements_get_stats(): array
             typeEquipement AS type,
             SUM(CASE WHEN etatEquipement = 'disponible' THEN 1 ELSE 0 END) AS disponibles,
             COUNT(*) AS total
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         GROUP BY typeEquipement
         ORDER BY typeEquipement ASC
     ";
@@ -56,7 +59,7 @@ function equipements_get_all(): array
             numeroEquipement,
             localisation,
             etatEquipement
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         ORDER BY typeEquipement ASC
     ";
 
@@ -81,7 +84,7 @@ function equipements_get_disponibles(): array
             numeroEquipement,
             localisation,
             etatEquipement
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         WHERE etatEquipement = 'disponible'
         ORDER BY typeEquipement ASC
     ";
@@ -102,7 +105,7 @@ function equipement_get_by_id(int $idEquipement): ?array
 
     $sql = "
         SELECT *
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         WHERE idEquipement = ?
         LIMIT 1
     ";
@@ -118,14 +121,13 @@ function equipement_get_by_id(int $idEquipement): ?array
 
 /**
  * Change l’état d’un équipement en 'occupe'.
- * Appelé après vérification de disponibilité.
  */
 function equipement_set_occupe(int $idEquipement): void
 {
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
+        UPDATE " . T_EQUIPEMENT . "
         SET etatEquipement = 'occupe'
         WHERE idEquipement = ?
     ";
@@ -137,22 +139,16 @@ function equipement_set_occupe(int $idEquipement): void
 
 /**
  * Ajoute un lien entre un dossier et un équipement (réservation).
- * On stocke la relation dans GESTION_EQUIPEMENT.
- *
- * ✅ IMPORTANT :
- * - Retourne false si l'équipement est en panne ou non disponible.
- * - Ne fait pas de exit() : le contrôleur gère les messages utilisateur.
  */
 function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 {
     $pdo = db();
 
-    // Vérifie si l'équipement est réservable avant de réserver
     if (!equipement_is_reservable($idEquipement)) {
         return false;
     }
 
-    $sql = "INSERT INTO GESTION_EQUIPEMENT (idDossier, idEquipement) VALUES (?, ?)";
+    $sql = "INSERT INTO " . T_GESTION_EQUIPEMENT . " (idDossier, idEquipement) VALUES (?, ?)";
     $stmt = $pdo->prepare($sql);
 
     return (bool)$stmt->execute([$idDossier, $idEquipement]);
@@ -161,7 +157,6 @@ function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 
 /**
  * Retourne les équipements liés à un dossier.
- * Utilisé uniquement dans la vue médecin.
  */
 function gestion_equipements_by_dossier(int $idDossier): array
 {
@@ -174,8 +169,8 @@ function gestion_equipements_by_dossier(int $idDossier): array
             e.numeroEquipement,
             e.localisation,
             e.etatEquipement
-        FROM GESTION_EQUIPEMENT g
-        JOIN EQUIPEMENT e ON e.idEquipement = g.idEquipement
+        FROM " . T_GESTION_EQUIPEMENT . " g
+        JOIN " . T_EQUIPEMENT . " e ON e.idEquipement = g.idEquipement
         WHERE g.idDossier = ?
         ORDER BY e.typeEquipement ASC
     ";
@@ -189,7 +184,6 @@ function gestion_equipements_by_dossier(int $idDossier): array
 
 /**
  * Retourne un résumé des équipements par dossier.
- * Exemple: [ 10 => "Cardiologie#2, Radiologie#1", ... ]
  */
 function equipements_resume_par_dossier(array $idsDossiers): array
 {
@@ -205,8 +199,8 @@ function equipements_resume_par_dossier(array $idsDossiers): array
         SELECT
             g.idDossier,
             GROUP_CONCAT(CONCAT(e.typeEquipement, '#', e.numeroEquipement) ORDER BY e.typeEquipement SEPARATOR ', ') AS resume
-        FROM GESTION_EQUIPEMENT g
-        JOIN EQUIPEMENT e ON e.idEquipement = g.idEquipement
+        FROM " . T_GESTION_EQUIPEMENT . " g
+        JOIN " . T_EQUIPEMENT . " e ON e.idEquipement = g.idEquipement
         WHERE g.idDossier IN ($placeholders)
         GROUP BY g.idDossier
     ";
@@ -225,16 +219,13 @@ function equipements_resume_par_dossier(array $idsDossiers): array
 
 /**
  * Mettre un équipement en panne.
- *
- * Cette fonction met à jour l'état de l'équipement
- * et le passe à "en_panne".
  */
 function equipement_set_panne(int $idEquipement): bool
 {
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
+        UPDATE " . T_EQUIPEMENT . "
         SET etatEquipement = 'en_panne'
         WHERE idEquipement = :id
         LIMIT 1
@@ -250,9 +241,6 @@ function equipement_set_panne(int $idEquipement): bool
 
 /**
  * Vérifie si l'équipement est réservable.
- *
- * Un équipement est réservable uniquement
- * si son état est "disponible".
  */
 function equipement_is_reservable(int $idEquipement): bool
 {
@@ -260,7 +248,7 @@ function equipement_is_reservable(int $idEquipement): bool
 
     $sql = "
         SELECT etatEquipement
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         WHERE idEquipement = :id
         LIMIT 1
     ";
@@ -280,9 +268,6 @@ function equipement_is_reservable(int $idEquipement): bool
 
 /**
  * Retourne l'état actuel de l'équipement.
- *
- * Utile pour afficher un message d'erreur clair
- * dans l'interface utilisateur.
  */
 function equipement_get_etat(int $idEquipement): string
 {
@@ -290,7 +275,7 @@ function equipement_get_etat(int $idEquipement): string
 
     $sql = "
         SELECT etatEquipement
-        FROM EQUIPEMENT
+        FROM " . T_EQUIPEMENT . "
         WHERE idEquipement = :id
         LIMIT 1
     ";
