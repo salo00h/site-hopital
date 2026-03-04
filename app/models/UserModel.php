@@ -7,6 +7,9 @@ declare(strict_types=1);
 // concernant les utilisateurs.
 // Il communique avec la base de données,
 // mais ne contient aucune logique d’affichage.
+// Utilisation des constantes de tables (_tables.php)
+// pour éviter les problèmes de majuscules/minuscules
+// entre Windows et Linux (Render / Railway).
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/_tables.php';
@@ -16,8 +19,8 @@ require_once __DIR__ . '/_tables.php';
 // sinon retourne null.
 function findUserByUsername(string $username): ?array
 {
-    $sql = 'SELECT * FROM users WHERE username = ? AND is_active = 1 LIMIT 1';
-    
+    $sql = 'SELECT * FROM ' . T_USERS . ' WHERE username = ? AND is_active = 1 LIMIT 1';
+
     // Préparation sécurisée de la requête (évite les injections SQL)
     $stmt = db()->prepare($sql);
     $stmt->execute([$username]);
