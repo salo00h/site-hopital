@@ -1,28 +1,25 @@
 <?php
 declare(strict_types=1);
 
-// ===============================
-// AUTH GUARD GLOBAL
-// ===============================
-// Vérifie que l'utilisateur est connecté
-// et (optionnel) qu'il a le bon rôle
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Non connecté ?
-if (!isset($_SESSION['user'])) {
+// Vérification connexion
+if (empty($_SESSION['user'])) {
+    $_SESSION['flash_error'] = "Veuillez vous connecter.";
     header('Location: index.php?action=login_form');
     exit;
 }
 
-// Vérification du rôle si nécessaire
-function requireRole(string $role): void
+// Vérification rôle
+function requireRole(string ...$roles): void
 {
-    if (($_SESSION['user']['role'] ?? '') !== $role) {
+    $userRole = $_SESSION['user']['role'] ?? '';
+
+    if (!in_array($userRole, $roles, true)) {
         http_response_code(403);
-        echo "Accès interdit.";
+        echo "403 - Accès interdit.";
         exit;
     }
 }

@@ -303,3 +303,49 @@ function equipement_get_etat(int $idEquipement): string
 
     return (string)($row['etatEquipement'] ?? '');
 }
+
+
+/**
+ * Nombre total d'équipements disponibles.
+ */
+function equipements_count_disponibles(): int
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM EQUIPEMENT
+        WHERE etatEquipement = 'disponible'
+    ";
+
+    $stmt = $pdo->query($sql);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return (int)($row['nb'] ?? 0);
+}
+
+
+
+
+
+/**
+ * Mise à jour de l’état d’un équipement.
+ */
+function equipement_update_etat(int $idEquipement, string $etat): bool
+{
+    $pdo = db();
+
+    $sql = "
+        UPDATE EQUIPEMENT
+        SET etatEquipement = :etat
+        WHERE idEquipement = :id
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+
+    return $stmt->execute([
+        ':etat' => $etat,
+        ':id'   => $idEquipement,
+    ]);
+}

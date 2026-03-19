@@ -2,7 +2,7 @@
 -- INITIALISATION BASE DE DONNEES
 -- =========================================
 
-DROP DATABASE IF EXISTS filrouge;
+
 
 CREATE DATABASE filrouge
 CHARACTER SET utf8mb4
@@ -22,7 +22,7 @@ CREATE TABLE HOPITAL (
     capaciteTotalEquipement TINYINT UNSIGNED
 );
 
--- Table SERVICE (✅ correction: parenthèses)
+-- Table SERVICE (correction: parenthèses)
 CREATE TABLE SERVICE (
     idService TINYINT AUTO_INCREMENT PRIMARY KEY,
     idHopital TINYINT NOT NULL,
@@ -55,8 +55,8 @@ CREATE TABLE DOSSIER_PATIENT (
     idPatient TINYINT NOT NULL,
     idHopital TINYINT NOT NULL,
     dateCreation DATE NOT NULL,
-    dateAdmission DATE,
-    dateSortie DATE,
+    dateAdmission DATETIME,
+    dateSortie DATETIME,
     historiqueMedical TEXT,
     antecedant TEXT,
     etat_entree TEXT,
@@ -83,7 +83,7 @@ CREATE TABLE PERSONNEL (
     FOREIGN KEY (idService) REFERENCES SERVICE(idService) ON UPDATE CASCADE
 );
 
--- ✅ correction ordre de création :
+-- correction ordre de création :
 -- MEDECIN / INFIRMIER / TECHNICIEN doivent être créées avant les tables qui les référencent (RESERVATION_* et MAINTENANCE_*)
 
 -- Table MEDECIN
@@ -113,7 +113,7 @@ CREATE TABLE TECHNICIEN (
 -- Table LIT
 CREATE TABLE LIT (
     idLit TINYINT AUTO_INCREMENT PRIMARY KEY,
-    numeroLit TINYINT NOT NULL,
+    numeroLit SMALLINT UNSIGNED NOT NULL,
     etatLit ENUM('disponible', 'reserve', 'occupe', 'en_panne', 'maintenance', 'HS') NOT NULL DEFAULT 'disponible',
     idService TINYINT NOT NULL,
     FOREIGN KEY (idService) REFERENCES SERVICE(idService) ON UPDATE CASCADE,
@@ -203,7 +203,7 @@ CREATE TABLE RESERVATION_LIT (
 );
 
 -- Table RESERVATION_EQUIPEMENT
--- ✅ correction: idEquipement (colonne) + FK sur EQUIPEMENT(idEquipement)
+-- correction: idEquipement (colonne) + FK sur EQUIPEMENT(idEquipement)
 CREATE TABLE RESERVATION_EQUIPEMENT (
     idReservationEquipment TINYINT AUTO_INCREMENT PRIMARY KEY,
     idEquipement TINYINT NOT NULL,

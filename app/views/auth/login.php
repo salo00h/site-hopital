@@ -11,6 +11,13 @@
     <div class="login-card">
         <h1 class="login-title">Connexion</h1>
 
+        <?php if (!empty($_SESSION['flash_error'])): ?>
+            <div class="alert alert-danger">
+                <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
+            <?php unset($_SESSION['flash_error']); ?>
+        <?php endif; ?>
+
         <?php if (!empty($error)) : ?>
             <div class="alert alert-danger">
                 <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>

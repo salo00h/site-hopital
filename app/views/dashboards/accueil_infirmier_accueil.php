@@ -3,46 +3,94 @@
   ==============================
   VIEW : Accueil Infirmier d’accueil
   ==============================
-  Cette page affiche :
-  - Accès à la liste des dossiers
-  - Création d’un nouveau patient
-  - Accès au dashboard des lits
-  Aucune logique métier ici (seulement affichage).
+  Tableau de bord avec statistiques réelles.
 */
 
 require __DIR__ . '/../../includes/header.php';
 require __DIR__ . '/../../includes/sidebar.php';
+
+/** @var array $stats */
+/** @var array $alertesRecentes */
 ?>
 
 <h1 class="page-title">Accueil Infirmier d’accueil</h1>
 
-<!-- Grille principale du tableau de bord -->
-<div class="dashboard-grid">
-
-  <!-- Carte : Liste des dossiers -->
-  <div class="card">
-    <div class="card-title">Dossiers</div>
-    <p class="card-subtitle">Rechercher / Consulter</p>
-    <!-- Redirection vers la liste -->
-    <a class="btn" href="index.php?action=dossiers_list">Ouvrir</a>
+<div class="stats-grid stats-grid-3">
+  <div class="stat-card">
+    <div class="stat-label">Lits disponibles</div>
+    <div class="stat-value"><?= (int)$stats['lits_disponibles'] ?></div>
   </div>
 
-  <!-- Carte : Création nouveau patient -->
-  <div class="card">
-    <div class="card-title">Nouveau patient</div>
-    <p class="card-subtitle">Créer dossier patient</p>
-    <!-- Redirection vers le formulaire de création -->
-    <a class="btn btn-primary" href="index.php?action=dossier_create_form">Créer</a>
+  <div class="stat-card">
+    <div class="stat-label">Lits réservés</div>
+    <div class="stat-value"><?= (int)$stats['lits_reserves'] ?></div>
   </div>
 
-  <!-- Carte : Dashboard des lits -->
-  <div class="card">
-    <div class="card-title">Dashboard lits</div>
-    <p class="card-subtitle">Voir état des lits</p>
-    <!-- Redirection vers le tableau de bord des lits -->
-    <a class="btn" href="index.php?action=lits_dashboard">Ouvrir</a>
+  <div class="stat-card">
+    <div class="stat-label">Patients en consultation</div>
+    <div class="stat-value"><?= (int)$stats['patients_consultation'] ?></div>
   </div>
 
+  <div class="stat-card">
+    <div class="stat-label">En attente de consultation</div>
+    <div class="stat-value"><?= (int)$stats['patients_attente'] ?></div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Équipements disponibles</div>
+    <div class="stat-value"><?= (int)$stats['equipements_disponibles'] ?></div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Alertes</div>
+    <div class="stat-value"><?= (int)$stats['alertes_total'] ?></div>
+  </div>
+</div>
+
+<div class="dashboard-sections">
+  <div class="card">
+    <div class="card-title">Messages d’alerte</div>
+
+    <?php if (!empty($alertesRecentes)): ?>
+      <div class="alerts-list">
+        <?php foreach ($alertesRecentes as $alerte): ?>
+          <div class="alert-item">
+            <div class="alert-item-text">
+              <?= htmlspecialchars((string)($alerte['message'] ?? 'Alerte')) ?>
+            </div>
+            <div class="alert-item-meta">
+              <?= htmlspecialchars((string)($alerte['typeAlerte'] ?? '')) ?>
+              —
+              <?= htmlspecialchars((string)($alerte['dateCreation'] ?? '')) ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="card-subtitle">Aucune alerte pour le moment.</p>
+    <?php endif; ?>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Niveaux de priorité</div>
+
+    <div class="priority-grid">
+      <div class="priority-box priority-high">
+        <div class="priority-label">Niveau 1</div>
+        <div class="priority-value"><?= (int)$stats['niveau_1'] ?></div>
+      </div>
+
+      <div class="priority-box priority-medium">
+        <div class="priority-label">Niveau 2</div>
+        <div class="priority-value"><?= (int)$stats['niveau_2'] ?></div>
+      </div>
+
+      <div class="priority-box priority-low">
+        <div class="priority-label">Niveau 3</div>
+        <div class="priority-value"><?= (int)$stats['niveau_3'] ?></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <?php require __DIR__ . '/../../includes/footer.php'; ?>

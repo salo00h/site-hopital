@@ -45,3 +45,47 @@ function alertes_get_last(int $limit = 5): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+/**
+ * Nombre total d'alertes.
+ */
+function alertes_count_all(): int
+{
+    $pdo = db();
+
+    $sql = "SELECT COUNT(*) AS nb FROM ALERTE";
+    $stmt = $pdo->query($sql);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return (int)($row['nb'] ?? 0);
+}
+
+
+/**
+ * Crée une nouvelle alerte.
+ *
+ * $type :
+ * - saturation
+ * - panne_Lit
+ * - panne_Equipement
+ * - Action
+ * - demande_transfert
+ *
+ * $action :
+ * - peut rester null si aucune action technique précise n'est nécessaire
+ */
+function alerte_create(string $type, string $description, ?string $action = null): bool
+{
+    $sql = "
+        INSERT INTO ALERTE (dateCreation, typeAlerte, action, statutAlerte, description)
+        VALUES (CURDATE(), :type, :action, 'nonLu', :description)
+    ";
+
+    $stmt = db()->prepare($sql);
+
+    return $stmt->execute([
+        ':type'        => $type,
+        ':action'      => $action,
+        ':description' => $description,
+    ]);
+}

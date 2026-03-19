@@ -14,6 +14,12 @@ $role = $_SESSION['user']['role'] ?? '';
         <li><a href="index.php?action=lits_dashboard">Tableau de bord des lits</a></li>
       <?php endif; ?>
 
+      <?php if ($role === 'INFIRMIER'): ?>
+        <li><a href="index.php?action=dossiers_list">Consulter dossier</a></li>
+        <li><a href="index.php?action=lits_list_infirmier">Changer état lit</a></li>
+        <li><a href="index.php?action=equipements_list_infirmier">Équipements</a></li>
+      <?php endif; ?>
+
       <?php if ($role === 'DIRECTEUR'): ?>
         <li><a href="index.php?action=transferts_historique">Transferts - Historique</a></li>
         <li><a href="index.php?action=transferts_traitement">Traiter transferts</a></li>

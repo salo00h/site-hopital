@@ -11,9 +11,11 @@ declare(strict_types=1);
   - Appeler les fonctions du Model
   - Afficher la View
 */
+
 require_once APP_PATH . '/includes/auth_guard.php';
 require_once __DIR__ . '/../models/LitModel.php';
 require_once __DIR__ . '/../models/DossierModel.php';
+
 
 /**
  * Tableau de bord des lits (infirmier d'accueil)
@@ -24,63 +26,47 @@ require_once __DIR__ . '/../models/DossierModel.php';
  */
 function lits_dashboard(): void
 {
-    // =========================
-    // 1) Sécurité : session
-    // =========================
+    // Sécurité : utilisateur connecté
     $user = $_SESSION['user'] ?? null;
     if (!$user) {
-        // Non connecté -> retour au login
         header('Location: index.php?action=login_form');
         exit;
     }
 
-    // =========================
-    // 2) Sécurité : rôle
-    // =========================
-    // Seul l'infirmier d'accueil peut voir ce dashboard
+    // Sécurité : rôle
     requireRole('INFIRMIER_ACCUEIL');
 
-    // =========================
-    // 3) Déterminer le service
-    // =========================
-    // On récupère l'idService via l'idPersonnel de l'utilisateur connecté.
+    // Récupérer le service lié au personnel connecté
     $idPersonnel = (int)($user['idPersonnel'] ?? 0);
     $idService   = $idPersonnel > 0 ? (int)(getServiceIdByPersonnel($idPersonnel) ?? 0) : 0;
 
-    // =========================
-    // 4) Variables pour la vue
-    // =========================
+    // Variables pour la vue
     $error = '';
     $stats = [];
     $lits  = [];
 
-    $nbDisponible    = 0;
-    $nbOccupe        = 0;
-    $nbReserve       = 0;
-    $nbHs            = 0;
-    $totalLits       = 0;
-    $tauxOccupation  = 0;
+    $nbDisponible   = 0;
+    $nbOccupe       = 0;
+    $nbReserve      = 0;
+    $nbHs           = 0;
+    $totalLits      = 0;
+    $tauxOccupation = 0;
 
-    $alertLevel      = '';
-    $alertMessage    = '';
+    $alertLevel   = '';
+    $alertMessage = '';
 
-    // Si pas de service -> on affiche une erreur propre
+    // Si aucun service n'est trouvé
     if ($idService <= 0) {
         $error = "Service introuvable pour cet utilisateur.";
         require __DIR__ . '/../views/lits/dashboard_infirmier_accueil.php';
         return;
     }
 
-    // =========================
-    // 5) Récupération des données (Model)
-    // =========================
+    // Récupération des données
     $stats = getLitStatsByService($idService);
     $lits  = getLitsByService($idService);
 
-    // =========================
-    // 6) Mise en forme des stats
-    // =========================
-    // Transformer le résultat SQL en map : $map['etat'] = nb
+    // Transformer les stats SQL en tableau simple
     $map = [];
     foreach ($stats as $s) {
         $etat = (string)($s['etatLit'] ?? '');
@@ -92,27 +78,22 @@ function lits_dashboard(): void
     $nbOccupe     = $map['occupe'] ?? 0;
     $nbReserve    = $map['reserve'] ?? 0;
 
-    // HS : accepter plusieurs libellés selon les données
+    // États HS possibles
     $nbHs  = 0;
     $nbHs += $map['hs'] ?? 0;
     $nbHs += $map['HS'] ?? 0;
     $nbHs += $map['en_panne'] ?? 0;
     $nbHs += $map['maintenance'] ?? 0;
 
-    // Total lits
+    // Calcul du total
     $totalLits = $nbDisponible + $nbOccupe + $nbReserve + $nbHs;
 
-    // =========================
-    // 7) Calcul du taux d’occupation
-    // =========================
-    // On considère "occupé + réservé" comme non disponible
+    // Calcul du taux d’occupation
     if ($totalLits > 0) {
         $tauxOccupation = (int) round((($nbOccupe + $nbReserve) / $totalLits) * 100);
     }
 
-    // =========================
-    // 8) Message d’alerte simple
-    // =========================
+    // Message d’alerte simple
     if ($nbDisponible === 0) {
         $alertLevel = 'danger';
         $alertMessage = "Aucun lit disponible : envisager l'attente ou une demande de transfert.";
@@ -121,9 +102,6 @@ function lits_dashboard(): void
         $alertMessage = "Peu de lits disponibles : prioriser selon le niveau de gravité (triage).";
     }
 
-    // =========================
-    // 9) Affichage de la vue
-    // =========================
     require __DIR__ . '/../views/lits/dashboard_infirmier_accueil.php';
 }
 
@@ -134,37 +112,39 @@ function lits_dashboard(): void
  */
 function lit_reserver_form(): void
 {
-    // 1) Sécurité : utilisateur connecté
+    // Sécurité : utilisateur connecté
     $user = $_SESSION['user'] ?? null;
     if (!$user) {
         header('Location: index.php?action=login_form');
         exit;
     }
 
-    // 2) Lire idDossier depuis l'URL
+    // Sécurité : rôle
+    requireRole('INFIRMIER_ACCUEIL');
+
+    // Lire idDossier depuis l'URL
     $idDossier = (int)($_GET['idDossier'] ?? 0);
     if ($idDossier <= 0) {
         echo "idDossier manquant.";
         exit;
     }
 
-    // 3) Vérifier si le dossier a déjà un lit
+    // Vérifier si le dossier a déjà un lit
     $litDeja = getLitForDossier($idDossier);
     if ($litDeja) {
-        $_SESSION['success'] =
-            "Ce dossier a déjà le lit n°" . $litDeja['numeroLit'] . ".";
+        $_SESSION['success'] = "Ce dossier a déjà le lit n°" . $litDeja['numeroLit'] . ".";
         header('Location: index.php?action=dossier_detail&id=' . $idDossier);
         exit;
     }
 
-    // 4) Récupérer le dossier
+    // Récupérer le dossier
     $dossier = getDossierById($idDossier);
     if (!$dossier) {
         echo "Dossier introuvable.";
         exit;
     }
 
-    // 5) On prend l'hôpital du dossier
+    // Récupérer l'hôpital du dossier
     $idHopital = (int)($dossier['idHopital'] ?? 0);
 
     $error = '';
@@ -173,11 +153,10 @@ function lit_reserver_form(): void
     if ($idHopital <= 0) {
         $error = "Hôpital introuvable pour ce dossier.";
     } else {
-        // On récupère les lits disponibles via l'hôpital
+        // Lits disponibles dans l’hôpital
         $availableLits = getAvailableLitsByHopital($idHopital);
     }
 
-    // 6) Affichage
     require __DIR__ . '/../views/lits/reserver.php';
 }
 
@@ -188,58 +167,169 @@ function lit_reserver_form(): void
  */
 function lit_reserver(): void
 {
-    // 1) Sécurité : utilisateur connecté
+    // ==============================
+    // Vérifier que l'utilisateur est connecté
+    // ==============================
     $user = $_SESSION['user'] ?? null;
     if (!$user) {
         header('Location: index.php?action=login_form');
         exit;
     }
 
-    // 2) Lire les paramètres POST
+    // Sécurité : rôle
+    requireRole('INFIRMIER_ACCUEIL');
+
+
+    // ==============================
+    // Lire les paramètres envoyés par le formulaire
+    // ==============================
     $idDossier = (int)($_POST['idDossier'] ?? 0);
     $idLit     = (int)($_POST['idLit'] ?? 0);
 
-    // Dates (valeurs par défaut si non fournies)
+    // Dates par défaut si l'utilisateur ne les a pas fournies
     $dateDebut = $_POST['dateDebut'] ?? date('Y-m-d H:i:s');
     $dateFin   = $_POST['dateFin'] ?? date('Y-m-d H:i:s', time() + 2 * 3600);
 
+    // Vérification simple des paramètres
     if ($idDossier <= 0 || $idLit <= 0) {
         echo "Paramètres invalides.";
         exit;
     }
 
-    // 3) Double sécurité : un dossier ne peut pas réserver plusieurs lits
+    // ==============================
+    // Sécurité : vérifier que le dossier n'a pas déjà un lit
+    // ==============================
     $litDeja = getLitForDossier($idDossier);
+
     if ($litDeja) {
         $_SESSION['success'] = "Ce dossier a déjà le lit n°" . $litDeja['numeroLit'] . ".";
         header('Location: index.php?action=dossier_detail&id=' . $idDossier);
         exit;
     }
 
-    // 4) Trouver l'infirmier (à partir du personnel)
+    // ==============================
+    // Trouver l'infirmier lié au personnel connecté
+    // ==============================
     $idPersonnel = (int)($user['idPersonnel'] ?? 0);
     $idInfirmier = getInfirmierIdByPersonnel($idPersonnel);
 
-    // Si ce n'est pas un infirmier (ex: médecin),
-    // on met NULL comme idInfirmier
+    // Si aucun infirmier n'est trouvé on met NULL
     if (!$idInfirmier) {
-     $idInfirmier = null;
+        $idInfirmier = null;
     }
 
-    // 5) Réserver (Model) + gestion d'erreur simple
+    // ==============================
+    // Tentative de réservation du lit
+    // ==============================
     try {
-        reserveLitForDossier($idLit, $idDossier, $idInfirmier, $dateDebut, $dateFin);
+
+        reserveLitForDossier(
+            $idLit,
+            $idDossier,
+            $idInfirmier,
+            $dateDebut,
+            $dateFin
+        );
+
+        // Message succès
         $_SESSION['success'] = "Lit réservé avec succès.";
+
+        // Redirection vers le détail du dossier
         header('Location: index.php?action=dossier_detail&id=' . $idDossier);
         exit;
+
     } catch (Throwable $e) {
-        // On ré-affiche le formulaire avec un message d'erreur
+
+        // ==============================
+        // Gestion d'erreur
+        // ==============================
         $error = $e->getMessage();
 
-        // Pour ré-afficher la liste des lits disponibles
-        $idService = getServiceIdByPersonnel($idPersonnel);
-        $availableLits = $idService ? getAvailableLits($idService) : [];
+        // Recharger les lits disponibles pour l'hôpital du dossier
+        $dossier = getDossierById($idDossier);
+        $idHopital = (int)($dossier['idHopital'] ?? 0);
 
+        $availableLits = $idHopital > 0
+            ? getAvailableLitsByHopital($idHopital)
+            : [];
+
+        // Réafficher le formulaire avec l'erreur
         require __DIR__ . '/../views/lits/reserver.php';
     }
+}
+
+
+
+/**
+ * Liste des lits pour infirmier.
+ * L’infirmier peut changer l’état :
+ * - reserve -> occupe
+ * - occupe -> disponible
+ */
+function lits_list_infirmier(): void
+{
+    requireRole('INFIRMIER');
+
+    $lits = lits_get_all();
+
+    require __DIR__ . '/../views/lits/liste_infirmier.php';
+}
+
+/**
+ * Changer l’état d’un lit par l’infirmier.
+ */
+function lit_changer_etat_infirmier(): void
+{
+    requireRole('INFIRMIER');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $idLit = (int)($_POST['idLit'] ?? 0);
+        $etat  = trim((string)($_POST['etat'] ?? ''));
+    } else {
+        $idLit = (int)($_GET['idLit'] ?? 0);
+        $etat  = trim((string)($_GET['etat'] ?? ''));
+    }
+
+    if ($idLit <= 0 || $etat === '') {
+        $_SESSION['flash_error'] = "Paramètres invalides.";
+        header('Location: index.php?action=lits_list_infirmier');
+        exit;
+    }
+
+    $lit = lit_get_by_id($idLit);
+
+    if (!$lit) {
+        $_SESSION['flash_error'] = "Lit introuvable.";
+        header('Location: index.php?action=lits_list_infirmier');
+        exit;
+    }
+
+    $etatActuel = (string)($lit['etatLit'] ?? '');
+
+    $allowed = false;
+
+    if ($etatActuel === 'reserve' && $etat === 'occupe') {
+        $allowed = true;
+    }
+
+    if ($etatActuel === 'occupe' && $etat === 'disponible') {
+        $allowed = true;
+    }
+
+    if (!$allowed) {
+        $_SESSION['flash_error'] = "Transition d’état non autorisée pour l’infirmier.";
+        header('Location: index.php?action=lits_list_infirmier');
+        exit;
+    }
+
+    $ok = lit_update_etat($idLit, $etat);
+
+    if ($ok) {
+        $_SESSION['flash_success'] = "État du lit mis à jour avec succès.";
+    } else {
+        $_SESSION['flash_error'] = "Impossible de modifier l’état du lit.";
+    }
+
+    header('Location: index.php?action=lits_list_infirmier');
+    exit;
 }

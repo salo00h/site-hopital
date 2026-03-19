@@ -38,7 +38,15 @@ function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin 
 function examens_get_by_dossier(int $idDossier): array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+        SELECT
+            idExamen,
+            idDossier,
+            typeExamen,
+            noteMedecin,
+            resultat,
+            dateDemande,
+            dateResultat,
+            statut
         FROM examen
         WHERE idDossier = :idDossier
         ORDER BY dateDemande DESC
@@ -55,7 +63,15 @@ function examens_get_by_dossier(int $idDossier): array
 function examen_get_by_id(int $idExamen): ?array
 {
     $sql = "
-        SELECT idExamen, idDossier, typeExamen, noteMedecin, dateDemande, statut
+        SELECT
+            idExamen,
+            idDossier,
+            typeExamen,
+            noteMedecin,
+            resultat,
+            dateDemande,
+            dateResultat,
+            statut
         FROM examen
         WHERE idExamen = :idExamen
         LIMIT 1
@@ -159,3 +175,56 @@ function examens_types_all(): array
 }
 
 
+
+
+function examen_save_resultat(int $idExamen, string $resultat): bool
+{
+    $sql = "
+        UPDATE examen
+        SET
+            resultat = :resultat,
+            dateResultat = NOW(),
+            statut = 'TERMINE'
+        WHERE idExamen = :idExamen
+        LIMIT 1
+    ";
+
+    $stmt = db()->prepare($sql);
+
+    return $stmt->execute([
+        ':resultat' => $resultat,
+        ':idExamen' => $idExamen,
+    ]);
+}
+
+/**
+ * Nombre de dossiers en attente d'examen.
+ */
+function examens_count_en_attente(): int
+{
+    $sql = "SELECT COUNT(*) FROM examen WHERE statut = 'EN_ATTENTE'";
+    return (int) db()->query($sql)->fetchColumn();
+}
+
+
+// Liste des dossiers en attente d'examen avec patient
+function examens_get_en_attente_with_patient(int $limit = 10): array
+{
+    $sql = "
+        SELECT
+            e.idExamen,
+            d.idDossier,
+            p.nom,
+            p.prenom,
+            e.typeExamen,
+            e.dateDemande
+        FROM examen e
+        JOIN dossier_patient d ON d.idDossier = e.idDossier
+        JOIN patient p ON p.idPatient = d.idPatient
+        WHERE e.statut = 'EN_ATTENTE'
+        ORDER BY e.dateDemande DESC
+        LIMIT $limit
+    ";
+
+    return db()->query($sql)->fetchAll();
+}

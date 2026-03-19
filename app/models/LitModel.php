@@ -63,16 +63,15 @@ function getInfirmierIdByPersonnel(int $idPersonnel): ?int
  * Statistiques des lits par état (disponible / occupé / reserve / etc.)
  * Exemple résultat : [ ['etatLit' => 'disponible', 'nb' => 5], ... ]
  */
-function getLitStatsByService(int $idService): array
+function getLitStatsByService(int $idService = 0): array
 {
     $sql = "
         SELECT etatLit, COUNT(*) AS nb
         FROM LIT
-        WHERE idService = ?
         GROUP BY etatLit
     ";
     $stmt = db()->prepare($sql);
-    $stmt->execute([$idService]);
+    $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
@@ -80,16 +79,15 @@ function getLitStatsByService(int $idService): array
 /**
  * Retourne tous les lits d'un service (pour affichage).
  */
-function getLitsByService(int $idService): array
+function getLitsByService(int $idService = 0): array
 {
     $sql = "
-        SELECT idLit, numeroLit, etatLit
+        SELECT idLit, numeroLit, etatLit, idService
         FROM LIT
-        WHERE idService = ?
-        ORDER BY numeroLit
+        ORDER BY idService, numeroLit
     ";
     $stmt = db()->prepare($sql);
-    $stmt->execute([$idService]);
+    $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
@@ -217,4 +215,129 @@ function lits_get_stats(): array
         'disponibles' => (int)($row['disponibles'] ?? 0),
         'occupes'     => (int)($row['occupes'] ?? 0),
     ];
+}
+
+/**
+ * Nombre de lits disponibles.
+ */
+function lits_count_disponibles(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM LIT
+        WHERE etatLit = 'disponible'
+    ";
+
+    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+}
+
+/**
+ * Nombre de lits réservés.
+ */
+function lits_count_reserves(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM LIT
+        WHERE etatLit = 'reserve'
+    ";
+
+    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+}
+
+
+/**
+ * Nombre de lits occupés + réservés.
+ */
+function lits_count_occupes_et_reserves(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM LIT
+        WHERE etatLit IN ('occupe', 'reserve')
+    ";
+
+    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+}
+
+/**
+ * Taux d’occupation global.
+ */
+function lits_get_taux_occupation_global(): int
+{
+    $sql = "
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN etatLit IN ('occupe', 'reserve') THEN 1 ELSE 0 END) AS nbOcc
+        FROM LIT
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $total = (int)($row['total'] ?? 0);
+    $nbOcc = (int)($row['nbOcc'] ?? 0);
+
+    if ($total <= 0) {
+        return 0;
+    }
+
+    return (int)round(($nbOcc / $total) * 100);
+}
+
+/**
+ * Liste globale des lits.
+ */
+function lits_get_all(): array
+{
+    $sql = "
+        SELECT idLit, numeroLit, etatLit, idService
+        FROM LIT
+        ORDER BY numeroLit ASC
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Retourne un lit par son ID.
+ */
+function lit_get_by_id(int $idLit): ?array
+{
+    $sql = "
+        SELECT idLit, numeroLit, etatLit, idService
+        FROM LIT
+        WHERE idLit = ?
+        LIMIT 1
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute([$idLit]);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+/**
+ * Mise à jour de l’état d’un lit.
+ */
+function lit_update_etat(int $idLit, string $etatLit): bool
+{
+    $sql = "
+        UPDATE LIT
+        SET etatLit = :etat
+        WHERE idLit = :id
+        LIMIT 1
+    ";
+
+    $stmt = db()->prepare($sql);
+
+    return $stmt->execute([
+        ':etat' => $etatLit,
+        ':id'   => $idLit,
+    ]);
 }

@@ -8,43 +8,47 @@ declare(strict_types=1);
  Rôle :
  - Médecin : demander un transfert
  - Directeur : valider / refuser
- - Historique : consulter transferts d'un patient
+ - Historique : consulter les transferts d'un patient
 ==================================================
 */
 
 require_once APP_PATH . '/models/TransfertModel.php';
+require_once APP_PATH . '/models/AlerteModel.php';
 
 /**
- * Formulaire (Médecin) : demander transfert
+ * Formulaire (Médecin) : demander un transfert
  */
 function transfert_form(): void
 {
     requireRole('MEDECIN');
 
     $idDossier = (int)($_GET['idDossier'] ?? 0);
+
     if ($idDossier <= 0) {
         http_response_code(400);
         exit('ID dossier invalide.');
     }
 
-    // Charger le modèle dossier pour récupérer nom/prénom + idPatient
+    // Charger le dossier pour récupérer le patient
     require_once APP_PATH . '/models/DossierModel.php';
 
     $dossier = getDossierById($idDossier);
+
     if (!$dossier) {
         http_response_code(404);
         exit('Dossier introuvable.');
     }
 
     $idPatient = (int)($dossier['idPatient'] ?? 0);
+
     if ($idPatient <= 0) {
         http_response_code(400);
         exit('Patient introuvable dans le dossier.');
     }
 
-    // Historique transferts du patient
+    // Historique des transferts du patient
     $historique = transferts_get_by_patient($idPatient);
-    $hopitaux = hopitaux_get_all();
+    $hopitaux   = hopitaux_get_all();
 
     require APP_PATH . '/views/transferts/form.php';
 }
@@ -71,7 +75,7 @@ function transfert_create_action(): void
         exit;
     }
 
-    // Charger dossier pour trouver idPatient + hopital source
+    // Charger le dossier pour trouver le patient
     require_once APP_PATH . '/models/DossierModel.php';
     $dossier = getDossierById($idDossier);
 
@@ -82,32 +86,47 @@ function transfert_create_action(): void
     }
 
     $idPatient = (int)($dossier['idPatient'] ?? 0);
+
     if ($idPatient <= 0) {
         $_SESSION['flash_error'] = "Patient introuvable.";
         header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
         exit;
     }
 
-    // idHopital source: حسب مشروعك، غالباً من session user
+    // Hôpital source : souvent depuis la session
     $user = $_SESSION['user'] ?? [];
     $idHopitalSource = (int)($user['idHopital'] ?? 0);
 
-    // إذا ما عندكش idHopital فـ session، خليه 1 مؤقتاً (أفضل تجيبه من personnel/hopital)
+    // Valeur par défaut si absente
     if ($idHopitalSource <= 0) {
         $idHopitalSource = 1;
     }
 
-    $ok = transfert_create_patient(
+    // Création de la demande de transfert dans l'historique
+    $okTransfert = transfert_create_patient(
         $idPatient,
         $idHopitalSource,
         $hopitalDestinataire,
         ($serviceDestinataire !== '' ? $serviceDestinataire : null)
     );
 
-    if ($ok) {
-        $_SESSION['flash_success'] = "Demande de transfert créée (statut : demande).";
+    // Création d'une alerte pour informer le directeur
+    $description = "Demande de transfert envoyée pour le patient ID "
+        . $idPatient
+        . " vers "
+        . $hopitalDestinataire
+        . ($serviceDestinataire !== '' ? " / service : " . $serviceDestinataire : "")
+        . ".";
+
+    $okAlerte = alerte_create('demande_transfert', $description, null);
+
+    // Message final
+    if ($okTransfert && $okAlerte) {
+        $_SESSION['flash_success'] = "Demande de transfert bien envoyée au directeur.";
+        $_SESSION['flash_error'] = "";
     } else {
-        $_SESSION['flash_error'] = "Erreur : impossible de créer la demande.";
+        $_SESSION['flash_success'] = "";
+        $_SESSION['flash_error'] = "Erreur : impossible d'enregistrer la demande de transfert.";
     }
 
     header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
@@ -115,7 +134,7 @@ function transfert_create_action(): void
 }
 
 /**
- * Directeur : liste des demandes (traitement)
+ * Directeur : liste des demandes
  */
 function transferts_traitement_directeur(): void
 {
@@ -127,7 +146,7 @@ function transferts_traitement_directeur(): void
 }
 
 /**
- * Directeur : action valider/refuser
+ * Directeur : valider ou refuser
  */
 function transfert_update_statut_action(): void
 {

@@ -150,11 +150,11 @@ function createDossier(int $idPatient, array $data): int
     $sql = "
         INSERT INTO DOSSIER_PATIENT
             (idPatient, idHopital, dateCreation, dateAdmission, dateSortie,
-             historiqueMedical, antecedant, etat_entree, diagnostic, examen, traitements,
+             historiqueMedical, antecedant, etat_entree, diagnostic, traitements,
              statut, niveau, delaiPriseCharge, idTransfert)
         VALUES
             (:idPatient, :idHopital, :dateCreation, :dateAdmission, :dateSortie,
-             :historiqueMedical, :antecedant, :etat_entree, :diagnostic, :examen, :traitements,
+             :historiqueMedical, :antecedant, :etat_entree, :diagnostic, :traitements,
              :statut, :niveau, :delaiPriseCharge, :idTransfert)
     ";
 
@@ -171,10 +171,9 @@ function createDossier(int $idPatient, array $data): int
         ':antecedant' => toNull($data['antecedant'] ?? null),
         ':etat_entree' => toNull($data['etat_entree'] ?? null),
         ':diagnostic' => toNull($data['diagnostic'] ?? null),
-        ':examen' => toNull($data['examen'] ?? null),
         ':traitements' => toNull($data['traitements'] ?? null),
 
-        ':statut' => $data['statut'] ?? null,
+        ':statut' => $data['statut'] ?? 'ouvert',
         ':niveau' => $data['niveau'] ?? null,
         ':delaiPriseCharge' => $data['delaiPriseCharge'] ?? null,
 
@@ -217,11 +216,10 @@ function updateDossier(
     ?string $antecedant,
     ?string $etat_entree,
     ?string $diagnostic,
-    ?string $examen,
     ?string $traitements,
     string $statut,
     string $niveau,
-    int $delai
+    string $delai
 ): void {
     $sql = "
         UPDATE DOSSIER_PATIENT SET
@@ -231,7 +229,6 @@ function updateDossier(
             antecedant = :antecedant,
             etat_entree = :etat_entree,
             diagnostic = :diagnostic,
-            examen = :examen,
             traitements = :traitements,
             statut = :statut,
             niveau = :niveau,
@@ -247,7 +244,6 @@ function updateDossier(
         ':antecedant' => toNull($antecedant),
         ':etat_entree' => toNull($etat_entree),
         ':diagnostic' => toNull($diagnostic),
-        ':examen' => toNull($examen),
         ':traitements' => toNull($traitements),
         ':statut' => $statut,
         ':niveau' => $niveau,
@@ -313,4 +309,188 @@ function examens_count_by_dossiers(array $idsDossiers): array
         $map[(int)$row['idDossier']] = (int)$row['nb'];
     }
     return $map;
+}
+
+/**
+ * Compte les dossiers selon le statut.
+ *
+ * On accepte plusieurs variantes pour éviter les écarts d'écriture :
+ * - consultation / en consultation / en_consultation
+ * - attente / en attente / en_attente / ouvert
+ */
+function dossiers_count_patients_consultation(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM DOSSIER_PATIENT
+        WHERE LOWER(statut) IN ('consultation', 'en consultation', 'en_consultation')
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return (int)($row['nb'] ?? 0);
+}
+
+/**
+ * Patients en attente de consultation.
+ * On considère ici :
+ * - attente
+ * - en attente
+ * - en_attente
+ * - ouvert
+ */
+function dossiers_count_patients_attente(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM DOSSIER_PATIENT
+        WHERE LOWER(statut) IN ('attente', 'en attente', 'en_attente', 'ouvert')
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return (int)($row['nb'] ?? 0);
+}
+
+/**
+ * Nombre de dossiers par niveau de priorité.
+ */
+function dossiers_count_by_niveau(int $niveau): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM DOSSIER_PATIENT
+        WHERE niveau = :niveau
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->bindValue(':niveau', $niveau, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return (int)($row['nb'] ?? 0);
+}
+
+
+/**
+ * ==================================================
+ * MODEL : confirmInstallationPatient
+ * ==================================================
+ * Rôle :
+ * Cette fonction met à jour les données après
+ * la confirmation de l’installation du patient.
+ *
+ * Elle fait deux modifications :
+ * 1) le lit passe à l’état "occupe"
+ * 2) le dossier passe à l’état "attente_consultation"
+ *
+ * Note :
+ * J’ai légèrement amélioré ce code avec l’aide de l’IA,
+ * sans changer sa logique principale.
+ * ==================================================
+ */
+function confirmInstallationPatient(int $idDossier, int $idLit): void
+{
+    // Connexion à la base de données
+    $pdo = db();
+
+    // Début de la transaction :
+    // on veut que les 2 mises à jour réussissent ensemble
+    $pdo->beginTransaction();
+
+    try {
+        // Mise à jour de l'état du lit
+        $stmtLit = $pdo->prepare("
+            UPDATE LIT
+            SET etatLit = :etat
+            WHERE idLit = :idLit
+        ");
+        $stmtLit->execute([
+            ':etat' => 'occupe',
+            ':idLit' => $idLit,
+        ]);
+
+        // Mise à jour du statut du dossier patient
+        $stmtDossier = $pdo->prepare("
+            UPDATE DOSSIER_PATIENT
+            SET statut = :statut
+            WHERE idDossier = :idDossier
+        ");
+        $stmtDossier->execute([
+            ':statut' => 'attente_consultation',
+            ':idDossier' => $idDossier,
+        ]);
+
+        // Validation définitive des deux requêtes
+        $pdo->commit();
+    } catch (Throwable $e) {
+        // En cas d'erreur :
+        // annuler toutes les modifications pour garder des données cohérentes
+        $pdo->rollBack();
+
+        // Relancer l'erreur pour qu'elle soit gérée plus haut
+        throw $e;
+    }
+}
+
+
+function dossier_update_statut(int $idDossier, string $statut): void
+{
+    $allowed = [
+        'ouvert',
+        'attente_consultation',
+        'consultation',
+        'attente_examen',
+        'attente_resultat',
+        'transfert',
+        'ferme',
+    ];
+
+    if (!in_array($statut, $allowed, true)) {
+        throw new InvalidArgumentException("Statut dossier invalide.");
+    }
+
+    $sql = "
+        UPDATE DOSSIER_PATIENT
+        SET statut = :statut
+        WHERE idDossier = :idDossier
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute([
+        ':statut' => $statut,
+        ':idDossier' => $idDossier,
+    ]);
+
+
+}
+
+
+
+/**
+ * Liste des consultations à venir pour le médecin.
+ */
+function dossiers_get_consultations(): array
+{
+    $sql = "
+        SELECT
+            d.idDossier,
+            p.nom,
+            p.prenom,
+            d.niveau AS priorite
+        FROM DOSSIER_PATIENT d
+        INNER JOIN PATIENT p ON p.idPatient = d.idPatient
+        WHERE LOWER(d.statut) IN ('attente_consultation', 'attente consultation')
+        ORDER BY d.niveau DESC, d.idDossier DESC
+        LIMIT 10
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    return $stmt->fetchAll() ?: [];
 }

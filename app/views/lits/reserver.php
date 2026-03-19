@@ -4,7 +4,7 @@
 <h1 class="page-title">Réserver un lit</h1>
 
 <?php if (!empty($error)): ?>
-  <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+  <div class="alert alert-danger"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
 <?php endif; ?>
 
 <?php if (empty($availableLits)): ?>
@@ -14,11 +14,17 @@
   </div>
 <?php else: ?>
   <div class="card">
+    <p class="card-subtitle">
+      La réservation du lit se fait sur une période donnée.
+      La date de début correspond au moment où le lit est attribué au patient.
+      La date de fin correspond à la fin prévue d’occupation ou à la prochaine réévaluation.
+    </p>
+
     <form class="form" method="post" action="index.php?action=lit_reserver">
       <input type="hidden" name="idDossier" value="<?= (int)$idDossier ?>">
 
       <p>
-        <label>Lit disponible :</label>
+        <label>Lit disponible</label>
         <select name="idLit" required>
           <option value="">-- Choisir --</option>
           <?php foreach ($availableLits as $lit): ?>
@@ -28,13 +34,13 @@
       </p>
 
       <p>
-        <label>Date début :</label>
-        <input type="datetime-local" name="dateDebut" value="<?= htmlspecialchars(date('Y-m-d\TH:i')) ?>" required>
+        <label>Date début de réservation</label>
+        <input type="datetime-local" name="dateDebut" value="<?= htmlspecialchars(date('Y-m-d\TH:i'), ENT_QUOTES, 'UTF-8') ?>" required>
       </p>
 
       <p>
-        <label>Date fin :</label>
-        <input type="datetime-local" name="dateFin" value="<?= htmlspecialchars(date('Y-m-d\TH:i', time() + 2*3600)) ?>" required>
+        <label>Date fin prévue</label>
+        <input type="datetime-local" name="dateFin" value="<?= htmlspecialchars(date('Y-m-d\TH:i', time() + 2 * 3600), ENT_QUOTES, 'UTF-8') ?>" required>
       </p>
 
       <div class="form-actions">

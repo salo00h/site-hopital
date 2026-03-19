@@ -498,3 +498,268 @@ textarea{ min-height: 90px; }
 .btn-primary:hover{
   background: #1e66d6;
 }
+
+/* =========================
+   DASHBOARD INFIRMIER ACCUEIL
+   ========================= */
+
+.stats-grid-3{
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.dashboard-sections{
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.alerts-list{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-item{
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fbff;
+}
+
+.alert-item-text{
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.alert-item-meta{
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.priority-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.priority-box{
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.priority-label{
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.priority-value{
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.priority-high{
+  background: #ffe9e9;
+  border-color: #ffbcbc;
+}
+
+.priority-medium{
+  background: #fff6d6;
+  border-color: #ffe29a;
+}
+
+.priority-low{
+  background: #eaffea;
+  border-color: #b7f3b7;
+}
+
+@media (max-width: 1000px){
+  .stats-grid-3{
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sections{
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================
+   DOSSIER LAYOUT
+   ========================= */
+
+.dossier-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1000px){
+  .dossier-grid{
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-install{
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-install:hover{
+  background: #2563eb;
+}
+
+.install-inline-form{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+}
+
+.btn-install{
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 16px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-install:hover{
+  background: #2563eb;
+}
+
+.install-inline-note{
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.custom-modal{
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.custom-modal.hidden{
+  display: none;
+}
+
+.custom-modal-box{
+  width: 420px;
+  max-width: calc(100% - 30px);
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+}
+
+.custom-modal-title{
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.custom-modal-text{
+  margin: 0 0 18px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #222;
+}
+
+.custom-modal-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.text-muted{
+  color: #777;
+}
+
+.doctor-search-bar{
+  margin: 0 0 18px 0;
+  width: 100%;
+  max-width: 740px;
+}
+
+.doctor-search-form{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #7fb8ff;
+  padding: 8px 10px;
+  border-radius: 0;
+}
+
+.doctor-search-input{
+  flex: 1;
+  margin: 0;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 2px;
+  height: 34px;
+  padding: 8px 12px;
+}
+
+.doctor-search-btn{
+  border: none;
+  background: #ffffff;
+  color: #111;
+  font-weight: 700;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.doctor-search-btn:hover{
+  background: #f3f4f6;
+}
+
+.mockup-panel.compact{
+  padding: 12px;
+}
+
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.statut-ouvert { background: #ddd; }
+.statut-attente_consultation { background: orange; color: white; }
+.statut-consultation { background: blue; color: white; }
+.statut-attente_examen { background: purple; color: white; }
+.statut-ferme { background: green; color: white; }
+
+
+
+.table{
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  margin-top: 10px;
+}
+
+.table th,
+.table td{
+  border: 1px solid var(--border);
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}

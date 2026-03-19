@@ -4,8 +4,18 @@
 <?php /** @var array $dossiers */ ?>
 
 <?php
-// Détection du rôle : affichage des colonnes uniquement pour le médecin
-$isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
+$role = $_SESSION['user']['role'] ?? '';
+$isMedecin = in_array($role, ['MEDECIN', 'INFIRMIER'], true);
+$isAccueil = ($role === 'INFIRMIER_ACCUEIL');
+
+/*
+|--------------------------------------------------------------------------
+| Fonction helper pour sécuriser l'affichage
+|--------------------------------------------------------------------------
+*/
+$h = static function (mixed $v): string {
+    return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
+};
 ?>
 
 <h1 class="page-title">Liste des dossiers</h1>
@@ -15,11 +25,11 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
 
   <input type="text" name="q"
          placeholder="Rechercher (nom/prénom/id)"
-         value="<?= htmlspecialchars($q ?? '', ENT_QUOTES, 'UTF-8') ?>">
+         value="<?= $h($q ?? '') ?>">
 
   <button class="btn btn-primary" type="submit">Rechercher</button>
 
-  <?php if (!$isMedecin): ?>
+  <?php if ($isAccueil): ?>
     <a class="btn" href="index.php?action=dossier_create_form">+ Nouveau dossier</a>
   <?php endif; ?>
 </form>
@@ -32,7 +42,8 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
         <th>Patient</th>
         <th>Date naissance</th>
         <th>Genre</th>
-        <th>Date admission</th>
+        <th>Date / heure arrivée</th>
+        <th>Niveau</th>
         <th>Lit</th>
 
         <?php if ($isMedecin): ?>
@@ -50,26 +61,23 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
       <?php foreach ($dossiers as $d): ?>
         <tr>
           <td><?= (int)$d['idDossier'] ?></td>
-          <td><?= htmlspecialchars($d['prenom'].' '.$d['nom'], ENT_QUOTES, 'UTF-8') ?></td>
-          <td><?= htmlspecialchars((string)$d['dateNaissance'], ENT_QUOTES, 'UTF-8') ?></td>
-          <td><?= htmlspecialchars((string)$d['genre'], ENT_QUOTES, 'UTF-8') ?></td>
-          <td><?= htmlspecialchars((string)$d['dateAdmission'], ENT_QUOTES, 'UTF-8') ?></td>
+          <td><?= $h(($d['prenom'] ?? '') . ' ' . ($d['nom'] ?? '')) ?></td>
+          <td><?= $h($d['dateNaissance'] ?? '') ?></td>
+          <td><?= $h($d['genre'] ?? '') ?></td>
+          <td><?= $h($d['dateAdmission'] ?? '') ?></td>
+          <td><?= $h($d['niveau'] ?? '-') ?></td>
           <td>
-            <?= !empty($d['numeroLit'])
-                ? htmlspecialchars((string)$d['numeroLit'], ENT_QUOTES, 'UTF-8')
-                : '-' ?>
+            <?= !empty($d['numeroLit']) ? $h($d['numeroLit']) : '-' ?>
           </td>
 
           <?php if ($isMedecin): ?>
-            <!-- Équipements -->
             <td>
               <?php
                 $id = (int)$d['idDossier'];
-                echo htmlspecialchars($equipementsResume[$id] ?? '-', ENT_QUOTES, 'UTF-8');
+                echo !empty($equipementsResume[$id]) ? 'Oui' : '-';
               ?>
             </td>
 
-            <!-- Examens -->
             <td>
               <?php
                 $id = (int)$d['idDossier'];
@@ -77,7 +85,6 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
               ?>
             </td>
 
-            <!-- ✅ Transferts -->
             <td>
               <?php
                 $idPatient = (int)($d['idPatient'] ?? 0);
@@ -86,24 +93,34 @@ $isMedecin = (($_SESSION['user']['role'] ?? '') === 'MEDECIN');
             </td>
           <?php endif; ?>
 
-          <td><?= htmlspecialchars((string)$d['statut'], ENT_QUOTES, 'UTF-8') ?></td>
+          <!-- Statut + indication transfert -->
+          <td>
+            <?= $h($d['statut'] ?? '') ?>
+
+            <?php
+              // Récupération du dernier statut de transfert pour ce patient
+              $idPatient = (int)($d['idPatient'] ?? 0);
+              $lastTransfertStatut = $transfertsLastStatut[$idPatient] ?? '';
+            ?>
+
+            <?php if ($lastTransfertStatut === 'demande' || $lastTransfertStatut === 'attente_reponse'): ?>
+              <br>
+              <span class="text-muted">+ demande de transfert en cours</span>
+            <?php endif; ?>
+          </td>
 
           <td>
             <?php
               $role = $_SESSION['user']['role'] ?? '';
-              $action = ($role === 'MEDECIN')
-                  ? 'dossier_detail_medecin'
-                  : 'dossier_detail';
+              $action = ($role === 'MEDECIN') ? 'dossier_detail_medecin' : 'dossier_detail';
             ?>
-            <a class="btn"
-               href="index.php?action=<?= $action ?>&id=<?= (int)$d['idDossier'] ?>">
-               Consulter
+            <a class="btn" href="index.php?action=<?= $action ?>&id=<?= (int)$d['idDossier'] ?>">
+              Consulter
             </a>
           </td>
         </tr>
       <?php endforeach; ?>
     </tbody>
-
   </table>
 </div>
 

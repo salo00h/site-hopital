@@ -170,3 +170,51 @@ function transferts_count_by_patients(array $idsPatients): array
 
     return $result;
 }
+
+
+
+/**
+ * Retourne le dernier statut de transfert pour chaque patient.
+ *
+ * Résultat attendu :
+ * [
+ *   idPatient => 'demande',
+ *   idPatient => 'accepte',
+ *   ...
+ * ]
+ */
+function transferts_last_statut_by_patients(array $idsPatients): array
+{
+    $idsPatients = array_values(array_unique(array_map('intval', $idsPatients)));
+    $idsPatients = array_values(array_filter($idsPatients, static fn(int $id): bool => $id > 0));
+
+    if (empty($idsPatients)) {
+        return [];
+    }
+
+    $pdo = db();
+    $in = implode(',', array_fill(0, count($idsPatients), '?'));
+
+    $sql = "
+        SELECT t1.idPatient, t1.statutTransfer
+        FROM transfert_patient t1
+        INNER JOIN (
+            SELECT idPatient, MAX(dateCreation) AS maxDate
+            FROM transfert_patient
+            WHERE idPatient IN ($in)
+            GROUP BY idPatient
+        ) t2
+            ON t1.idPatient = t2.idPatient
+           AND t1.dateCreation = t2.maxDate
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($idsPatients);
+
+    $result = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $result[(int)$row['idPatient']] = (string)$row['statutTransfer'];
+    }
+
+    return $result;
+}
