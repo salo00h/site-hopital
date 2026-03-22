@@ -80,3 +80,66 @@ MODIFY COLUMN typeAlerte
 ENUM('saturation', 'panne_Lit', 'panne_Equipement', 'Action', 'demande_transfert')
 NOT NULL;
 
+
+
+
+-- ============================================================
+-- Gestion de sortie patient
+-- ------------------------------------------------------------
+-- Ce bloc a été ajouté pendant l’avancement du projet.
+-- Au début, la structure principale de la base était suffisante
+-- pour gérer l’admission, le dossier, le lit et les équipements.
+--
+-- Ensuite, en avançant dans les tests métier, nous avons constaté
+-- qu’il fallait distinguer 2 étapes différentes :
+--
+-- 1) la validation médicale de sortie
+--    -> faite par le médecin
+--
+-- 2) la confirmation finale de sortie
+--    -> faite par l’infirmier / la soignante après les actions terrain
+--       (fin réelle de prise en charge, libération du lit,
+--        libération des équipements, clôture complète du dossier)
+--
+-- Nous n’avons pas voulu modifier profondément la logique initiale
+-- ni remplacer les statuts principaux déjà en place dans
+-- DOSSIER_PATIENT, car la table fonctionnait déjà avec des valeurs
+-- comme "ferme".
+--
+-- Pour cette raison, nous avons choisi une solution simple et sûre :
+-- ajouter des colonnes complémentaires pour suivre le processus
+-- de sortie sans casser la structure existante.
+--
+-- Ainsi :
+-- - sortieValidee = 1  -> le médecin a validé la sortie médicale
+-- - dateValidationSortie -> date/heure de cette validation
+-- - sortieConfirmee = 1 -> la sortie finale a été confirmée
+--
+-- Ce choix permet de garder la base cohérente, de respecter le
+-- fonctionnement métier réel, et d’éviter une refonte lourde
+-- des tables principales déjà utilisées dans l’application.
+-- ============================================================
+
+ALTER TABLE dossier_patient
+ADD COLUMN sortieValidee TINYINT(1) NOT NULL DEFAULT 0 AFTER dateSortie,
+ADD COLUMN dateValidationSortie DATETIME NULL AFTER sortieValidee,
+ADD COLUMN sortieConfirmee TINYINT(1) NOT NULL DEFAULT 0 AFTER dateValidationSortie;
+
+
+-- =====================================================
+-- AJOUT ETAT "reserve" POUR EQUIPEMENT
+-- =====================================================
+-- Dans la version initiale, l’équipement ne contenait pas
+-- l’état "reserve".
+-- Nous avons ajouté cet état afin de mieux structurer
+-- le processus métier : disponible → réservé → occupé.
+
+ALTER TABLE EQUIPEMENT
+MODIFY etatEquipement ENUM(
+  'disponible',
+  'reserve',
+  'occupe',
+  'en_panne',
+  'maintenance',
+  'HS'
+) NOT NULL DEFAULT 'disponible';

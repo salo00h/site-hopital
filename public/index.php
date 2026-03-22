@@ -112,7 +112,15 @@ switch ($action) {
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_update();
         break;
+    case 'validerSortieMedecin':
+     require_once APP_PATH . '/controllers/DossierController.php';
+     validerSortieMedecin();
+     break;
 
+    case 'confirmerSortieInfirmier':
+     require_once APP_PATH . '/controllers/DossierController.php';
+     confirmerSortieInfirmier();
+     break;
 
     // ==================================================
     // 4) GESTION DES LITS
@@ -224,10 +232,16 @@ switch ($action) {
         equipement_signaler_panne_infirmier();
         break;
 
-    case 'equipement_changer_etat_infirmier':
+    case 'equipement_utiliser':
         require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
-        equipement_changer_etat_infirmier();
+        equipement_utiliser();
+        break;
+
+    case 'equipement_liberer':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_liberer();
         break;
 
 

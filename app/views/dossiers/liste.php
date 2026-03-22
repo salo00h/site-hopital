@@ -23,9 +23,12 @@ $h = static function (mixed $v): string {
 <form class="actions" method="get" action="index.php">
   <input type="hidden" name="action" value="dossiers_list">
 
-  <input type="text" name="q"
-         placeholder="Rechercher (nom/prénom/id)"
-         value="<?= $h($q ?? '') ?>">
+  <input
+    type="text"
+    name="q"
+    placeholder="Rechercher (nom/prénom/id)"
+    value="<?= $h($q ?? '') ?>"
+  >
 
   <button class="btn btn-primary" type="submit">Rechercher</button>
 
@@ -60,28 +63,26 @@ $h = static function (mixed $v): string {
     <tbody>
       <?php foreach ($dossiers as $d): ?>
         <tr>
-          <td><?= (int)$d['idDossier'] ?></td>
+          <td><?= (int)($d['idDossier'] ?? 0) ?></td>
           <td><?= $h(($d['prenom'] ?? '') . ' ' . ($d['nom'] ?? '')) ?></td>
           <td><?= $h($d['dateNaissance'] ?? '') ?></td>
           <td><?= $h($d['genre'] ?? '') ?></td>
           <td><?= $h($d['dateAdmission'] ?? '') ?></td>
           <td><?= $h($d['niveau'] ?? '-') ?></td>
-          <td>
-            <?= !empty($d['numeroLit']) ? $h($d['numeroLit']) : '-' ?>
-          </td>
+          <td><?= !empty($d['numeroLit']) ? $h($d['numeroLit']) : '-' ?></td>
 
           <?php if ($isMedecin): ?>
             <td>
               <?php
-                $id = (int)$d['idDossier'];
-                echo !empty($equipementsResume[$id]) ? 'Oui' : '-';
+                $idDossier = (int)($d['idDossier'] ?? 0);
+                echo !empty($equipementsResume[$idDossier]) ? 'Oui' : '-';
               ?>
             </td>
 
             <td>
               <?php
-                $id = (int)$d['idDossier'];
-                echo (int)($examensCount[$id] ?? 0);
+                $idDossier = (int)($d['idDossier'] ?? 0);
+                echo (int)($examensCount[$idDossier] ?? 0);
               ?>
             </td>
 
@@ -93,15 +94,31 @@ $h = static function (mixed $v): string {
             </td>
           <?php endif; ?>
 
-          <!-- Statut + indication transfert -->
           <td>
-            <?= $h($d['statut'] ?? '') ?>
-
             <?php
-              // Récupération du dernier statut de transfert pour ce patient
+              $statut = (string)($d['statut'] ?? '');
+              $sortieValidee = (int)($d['sortieValidee'] ?? 0);
+              $sortieConfirmee = (int)($d['sortieConfirmee'] ?? 0);
+
+              // Affichage du statut avec adaptation métier (EN CONSULTATION)
+              // et ajout d’un message si la sortie est validée mais non confirmée
+              if ($statut === 'consultation') {
+                  echo 'EN CONSULTATION';
+              } else {
+                  echo $h($statut);
+              }
+
+              // Dernier transfert
               $idPatient = (int)($d['idPatient'] ?? 0);
               $lastTransfertStatut = $transfertsLastStatut[$idPatient] ?? '';
             ?>
+
+            <?php if ($sortieValidee === 1 && $sortieConfirmee === 0): ?>
+              <br>
+              <span class="text-muted">
+                + sortie validée par le médecin, en attente de l’infirmier
+              </span>
+            <?php endif; ?>
 
             <?php if ($lastTransfertStatut === 'demande' || $lastTransfertStatut === 'attente_reponse'): ?>
               <br>
@@ -111,10 +128,10 @@ $h = static function (mixed $v): string {
 
           <td>
             <?php
-              $role = $_SESSION['user']['role'] ?? '';
-              $action = ($role === 'MEDECIN') ? 'dossier_detail_medecin' : 'dossier_detail';
+              $currentRole = $_SESSION['user']['role'] ?? '';
+              $detailAction = ($currentRole === 'MEDECIN') ? 'dossier_detail_medecin' : 'dossier_detail';
             ?>
-            <a class="btn" href="index.php?action=<?= $action ?>&id=<?= (int)$d['idDossier'] ?>">
+            <a class="btn" href="index.php?action=<?= $detailAction ?>&id=<?= (int)($d['idDossier'] ?? 0) ?>">
               Consulter
             </a>
           </td>

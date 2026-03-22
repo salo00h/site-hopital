@@ -43,6 +43,8 @@ function getAllDossiers(string $q = ''): array
             d.statut,
             d.niveau,
             d.delaiPriseCharge,
+            d.sortieValidee,
+            d.sortieConfirmee,
             l.idLit,
             l.numeroLit,
             p.idPatient,
@@ -494,3 +496,119 @@ function dossiers_get_consultations(): array
 
     return $stmt->fetchAll() ?: [];
 }
+
+
+
+
+
+
+// ==============================
+// VALIDER SORTIE (MEDECIN)
+// ==============================
+function validerSortieMedicale(int $idDossier): bool
+{
+    $sql = "UPDATE dossier_patient
+            SET sortieValidee = 1,
+                dateValidationSortie = NOW()
+            WHERE idDossier = :idDossier
+              AND statut <> 'ferme'";
+
+    $stmt = db()->prepare($sql);
+    return $stmt->execute([
+        ':idDossier' => $idDossier
+    ]);
+}
+
+
+
+// ==============================
+// CONFIRMER SORTIE (INFIRMIER)
+// ==============================
+function confirmerSortieFinale(int $idDossier): bool
+{
+    $pdo = db();
+    $pdo->beginTransaction();
+
+    try {
+        // Vérifier que la sortie a déjà été validée par le médecin
+        $stmt = $pdo->prepare("
+            SELECT sortieValidee
+            FROM dossier_patient
+            WHERE idDossier = :id
+        ");
+        $stmt->execute([':id' => $idDossier]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row || (int)($row['sortieValidee'] ?? 0) !== 1) {
+            throw new Exception("Sortie non validée par le médecin.");
+        }
+
+        // 1) Fermer le dossier
+        $stmt = $pdo->prepare("
+            UPDATE dossier_patient
+            SET statut = 'ferme',
+                dateSortie = NOW(),
+                sortieConfirmee = 1
+            WHERE idDossier = :idDossier
+        ");
+        $stmt->execute([':idDossier' => $idDossier]);
+
+        // 2) Récupérer le lit lié au dossier
+        $stmt = $pdo->prepare("
+            SELECT idLit
+            FROM gestion_lit
+            WHERE idDossier = :idDossier
+            LIMIT 1
+        ");
+        $stmt->execute([':idDossier' => $idDossier]);
+        $lit = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // 3) Libérer le lit
+        if ($lit && !empty($lit['idLit'])) {
+            $stmt = $pdo->prepare("
+                UPDATE lit
+                SET etatLit = 'disponible'
+                WHERE idLit = :idLit
+            ");
+            $stmt->execute([':idLit' => (int)$lit['idLit']]);
+        }
+
+        // 4) Récupérer les équipements liés au dossier
+        $stmt = $pdo->prepare("
+            SELECT idEquipement
+            FROM gestion_equipement
+            WHERE idDossier = :idDossier
+        ");
+        $stmt->execute([':idDossier' => $idDossier]);
+        $equipements = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 5) Libérer tous les équipements
+        if (!empty($equipements)) {
+            $stmtEq = $pdo->prepare("
+                UPDATE equipement
+                SET etatEquipement = 'disponible'
+                WHERE idEquipement = :idEquipement
+            ");
+
+            foreach ($equipements as $eq) {
+                $stmtEq->execute([
+                    ':idEquipement' => (int)$eq['idEquipement']
+                ]);
+            }
+        }
+
+        // 6) Conserver les liens pour l'historique
+        // On garde les relations dans gestion_lit et gestion_equipement.
+        // Ainsi, le dossier fermé garde la trace du lit et des équipements utilisés.
+
+        $pdo->commit();
+        return true;
+
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+

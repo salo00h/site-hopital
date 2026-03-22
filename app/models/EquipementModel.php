@@ -65,30 +65,6 @@ function equipements_get_all(): array
 }
 
 
-/**
- * Retourne uniquement les équipements disponibles.
- * Utilisé pour la réservation.
- */
-function equipements_get_disponibles(): array
-{
-    $pdo = db();
-
-    $sql = "
-        SELECT
-            idEquipement,
-            typeEquipement,
-            numeroEquipement,
-            localisation,
-            etatEquipement
-        FROM EQUIPEMENT
-        WHERE etatEquipement = 'disponible'
-        ORDER BY typeEquipement ASC
-    ";
-
-    $stmt = $pdo->query($sql);
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
 
 
 /**
@@ -138,7 +114,7 @@ function equipement_set_occupe(int $idEquipement): void
  * Ajoute un lien entre un dossier et un équipement (réservation).
  * On stocke la relation dans GESTION_EQUIPEMENT.
  *
- * ✅ IMPORTANT :
+ *  IMPORTANT :
  * - Retourne false si l'équipement est en panne ou non disponible.
  * - Ne fait pas de exit() : le contrôleur gère les messages utilisateur.
  */
@@ -146,9 +122,21 @@ function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 {
     $pdo = db();
 
-    // Vérifie si l'équipement est réservable avant de réserver
     if (!equipement_is_reservable($idEquipement)) {
         return false;
+    }
+
+    $checkSql = "
+        SELECT COUNT(*) AS nb
+        FROM GESTION_EQUIPEMENT
+        WHERE idDossier = ? AND idEquipement = ?
+    ";
+    $check = $pdo->prepare($checkSql);
+    $check->execute([$idDossier, $idEquipement]);
+    $row = $check->fetch(PDO::FETCH_ASSOC);
+
+    if ((int)($row['nb'] ?? 0) > 0) {
+        return true;
     }
 
     $sql = "INSERT INTO GESTION_EQUIPEMENT (idDossier, idEquipement) VALUES (?, ?)";
@@ -277,55 +265,6 @@ function equipement_is_reservable(int $idEquipement): bool
 }
 
 
-/**
- * Retourne l'état actuel de l'équipement.
- *
- * Utile pour afficher un message d'erreur clair
- * dans l'interface utilisateur.
- */
-function equipement_get_etat(int $idEquipement): string
-{
-    $pdo = db();
-
-    $sql = "
-        SELECT etatEquipement
-        FROM EQUIPEMENT
-        WHERE idEquipement = :id
-        LIMIT 1
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':id' => $idEquipement
-    ]);
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return (string)($row['etatEquipement'] ?? '');
-}
-
-
-/**
- * Nombre total d'équipements disponibles.
- */
-function equipements_count_disponibles(): int
-{
-    $pdo = db();
-
-    $sql = "
-        SELECT COUNT(*) AS nb
-        FROM EQUIPEMENT
-        WHERE etatEquipement = 'disponible'
-    ";
-
-    $stmt = $pdo->query($sql);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
-    return (int)($row['nb'] ?? 0);
-}
-
-
-
 
 
 /**
@@ -349,3 +288,19 @@ function equipement_update_etat(int $idEquipement, string $etat): bool
         ':id'   => $idEquipement,
     ]);
 }
+
+
+function equipement_set_reserve(int $idEquipement): void
+{
+    $pdo = db();
+
+    $sql = "
+        UPDATE EQUIPEMENT
+        SET etatEquipement = 'reserve'
+        WHERE idEquipement = ?
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$idEquipement]);
+}
+

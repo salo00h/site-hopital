@@ -122,8 +122,45 @@ if ($statutDernierTransfert !== '') {
       <tbody>
         <tr><th style="width:220px;">Date / heure arrivée</th><td><?= $formatDateTime($dossier['dateAdmission'] ?? null) ?></td></tr>
         <tr><th>Date sortie</th><td><?= $formatDateTime($dossier['dateSortie'] ?? null) ?></td></tr>
-        <tr><th>Statut</th><td><?= $h($dossier['statut'] ?? '') ?></td></tr>
+
+        <!-- Afficher si le médecin a déjà validé la sortie -->
+        <tr>
+          <th>Sortie validée par le médecin</th>
+          <td><?= ((int)($dossier['sortieValidee'] ?? 0) === 1) ? 'Oui' : 'Non' ?></td>
+        </tr>
+
+        <?php if (!empty($dossier['dateValidationSortie'])): ?>
+        <tr>
+          <th>Date validation médicale</th>
+          <td><?= $h($dossier['dateValidationSortie']) ?></td>
+        </tr>
+        <?php endif; ?>
+
+        <tr>
+          <th>Statut</th>
+          <td>
+            <?= $h($dossier['statut'] ?? '') ?>
+
+            <?php if (
+                (int)($dossier['sortieValidee'] ?? 0) === 1
+                && (int)($dossier['sortieConfirmee'] ?? 0) === 0
+            ): ?>
+              <br>
+              <span class="text-muted">
+                + le médecin a validé la sortie de ce patient, merci de poursuivre les opérations de sortie du patient
+              </span>
+            <?php endif; ?>
+          </td>
+        </tr>
+
         <tr><th>Demande de transfert</th><td><?= $h($libelleTransfert) ?></td></tr>
+
+        <!-- Ajout : état de confirmation finale -->
+        <tr>
+          <th>Sortie finale confirmée</th>
+          <td><?= ((int)($dossier['sortieConfirmee'] ?? 0) === 1) ? 'Oui' : 'Non' ?></td>
+        </tr>
+
         <tr><th>Niveau de priorité</th><td><?= $h($dossier['niveau'] ?? '-') ?></td></tr>
         <tr><th>Délai prise en charge</th><td><?= $h($dossier['delaiPriseCharge'] ?? '-') ?></td></tr>
         <tr><th>État entrée</th><td><?= $h($dossier['etat_entree'] ?? '-') ?></td></tr>
@@ -193,6 +230,22 @@ if ($statutDernierTransfert !== '') {
         <a class="btn btn-primary" href="index.php?action=equipements_list_infirmier&idDossier=<?= (int)$dossier['idDossier'] ?>">
           Réserver équipement
         </a>
+      <?php endif; ?>
+
+      <?php if (
+          (int)($dossier['sortieValidee'] ?? 0) === 1
+          && (int)($dossier['sortieConfirmee'] ?? 0) === 0
+      ): ?>
+        <form method="post" action="index.php?action=confirmerSortieInfirmier" style="display:inline-block;">
+          <input type="hidden" name="idDossier" value="<?= (int)$dossier['idDossier'] ?>">
+          <button
+            type="submit"
+            class="btn btn-success"
+            onclick="return confirm('Confirmer la sortie finale et libérer le lit ?');"
+          >
+            Confirmer sortie finale
+          </button>
+        </form>
       <?php endif; ?>
     </div>
 
@@ -306,7 +359,48 @@ $statutDossier = (string)($dossier['statut'] ?? '');
             <td><?= $h($eq['typeEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['numeroEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['localisation'] ?? '-') ?></td>
-            <td><?= $h($eq['etatEquipement'] ?? '-') ?></td>
+
+            <td>
+              <?php
+              /*
+              |--------------------------------------------------------------------------
+              | Affichage de l'état + actions rapides pour l'infirmier
+              |--------------------------------------------------------------------------
+              | - reserve => afficher bouton Utiliser
+              | - occupe  => afficher bouton Libérer
+              | Ces actions sont visibles seulement pour le rôle INFIRMIER.
+              */
+              $etatEq = (string)($eq['etatEquipement'] ?? '');
+              ?>
+
+              <?= $h($etatEq !== '' ? $etatEq : '-') ?>
+
+              <?php if (($_SESSION['user']['role'] ?? '') === 'INFIRMIER'): ?>
+                <?php if ($etatEq === 'reserve'): ?>
+                  <form method="post"
+                        action="index.php?action=equipement_utiliser"
+                        style="display:inline-block; margin-left:10px;">
+                    <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
+                    <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
+                    <button type="submit" class="btn btn-primary">
+                      Utiliser
+                    </button>
+                  </form>
+
+                <?php elseif ($etatEq === 'occupe'): ?>
+                  <form method="post"
+                        action="index.php?action=equipement_liberer"
+                        style="display:inline-block; margin-left:10px;"
+                        onsubmit="return confirm('Libérer cet équipement ?');">
+                    <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
+                    <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
+                    <button type="submit" class="btn">
+                      Libérer
+                    </button>
+                  </form>
+                <?php endif; ?>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>

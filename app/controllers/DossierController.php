@@ -643,3 +643,52 @@ function confirmer_installation_patient(): void
     header('Location: index.php?action=dossier_detail&id=' . $idDossier);
     exit;
 }
+
+
+function validerSortieMedecin(): void
+{
+    requireRole('MEDECIN');
+
+    if (!requirePost()) return;
+
+    $idDossier = getIntParam('idDossier', 0);
+
+    if ($idDossier <= 0) {
+        $_SESSION['flash_error'] = 'Dossier invalide.';
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    validerSortieMedicale($idDossier);
+
+    $_SESSION['flash_success'] = 'Sortie validée par le médecin.';
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+    exit;
+}
+
+
+function confirmerSortieInfirmier(): void
+{
+    $role = $_SESSION['user']['role'] ?? '';
+
+    if (!in_array($role, ['INFIRMIER', 'INFIRMIER_ACCUEIL'], true)) {
+        abort(403, "Accès refusé.");
+    }
+
+    if (!requirePost()) return;
+
+    $idDossier = getIntParam('idDossier', 0);
+
+    if ($idDossier <= 0) {
+        $_SESSION['flash_error'] = 'Dossier invalide.';
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    confirmerSortieFinale($idDossier);
+
+    $_SESSION['flash_success'] = 'Sortie finale confirmée. Lit et équipements libérés.';
+    header('Location: index.php?action=dossier_detail&id=' . $idDossier);
+    exit;
+}
+

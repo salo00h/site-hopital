@@ -161,6 +161,19 @@ if ($statutDernierTransfert !== '') {
         <tr><th style="width:220px;">Date / heure arrivée</th><td><?= $formatDateTime($dossier['dateAdmission'] ?? null) ?></td></tr>
         <tr><th>Date sortie</th><td><?= $formatDateTime($dossier['dateSortie'] ?? null) ?></td></tr>
 
+        <!-- Ajout : état de validation de sortie -->
+        <tr>
+          <th>Sortie validée</th>
+          <td><?= ((int)($dossier['sortieValidee'] ?? 0) === 1) ? 'Oui' : 'Non' ?></td>
+        </tr>
+
+        <?php if (!empty($dossier['dateValidationSortie'])): ?>
+        <tr>
+          <th>Date validation sortie</th>
+          <td><?= htmlspecialchars($dossier['dateValidationSortie'], ENT_QUOTES, 'UTF-8') ?></td>
+        </tr>
+        <?php endif; ?>
+
         <!-- Affichage du statut avec un badge coloré -->
         <tr>
           <th>Statut</th>
@@ -172,6 +185,20 @@ if ($statutDernierTransfert !== '') {
             <?php if ($statutDernierTransfert === 'demande' || $statutDernierTransfert === 'attente_reponse'): ?>
               <br>
               <span class="text-muted">+ <?= $h($libelleTransfert) ?></span>
+            <?php endif; ?>
+
+            <?php
+            // Afficher une information métier après validation médicale
+            // tant que la sortie finale n'est pas encore confirmée.
+            ?>
+            <?php if (
+                (int)($dossier['sortieValidee'] ?? 0) === 1
+                && (int)($dossier['sortieConfirmee'] ?? 0) === 0
+            ): ?>
+              <br>
+              <span class="text-muted">
+                + sortie médicale validée, en attente de l’infirmier pour finaliser les opérations de sortie du patient
+              </span>
             <?php endif; ?>
 
             <?php
@@ -248,6 +275,19 @@ if ($statutDernierTransfert !== '') {
         <a class="btn btn-primary" href="index.php?action=equipements_list_medecin&idDossier=<?= $idDossier ?>">
           Réserver équipement
         </a>
+      <?php endif; ?>
+
+      <?php if (($dossier['statut'] ?? '') !== 'ferme' && (int)($dossier['sortieValidee'] ?? 0) === 0): ?>
+        <form method="post" action="index.php?action=validerSortieMedecin" style="display:inline-block;">
+          <input type="hidden" name="idDossier" value="<?= (int)$dossier['idDossier'] ?>">
+          <button
+            type="submit"
+            class="btn btn-danger"
+            onclick="return confirm('Confirmer la sortie du patient ?');"
+          >
+            Valider sortie
+          </button>
+        </form>
       <?php endif; ?>
     </div>
   </div>

@@ -112,7 +112,7 @@ function equipement_reserver(): void
             exit;
         }
 
-        equipement_set_occupe($idEquipement);
+        equipement_set_reserve($idEquipement);
 
         $pdo->commit();
 
@@ -124,7 +124,7 @@ function equipement_reserver(): void
     } catch (Throwable $e) {
         $pdo->rollBack();
 
-        $_SESSION['flash_error'] = "Erreur : réservation impossible.";
+        $_SESSION['flash_error'] = "Erreur : réservation impossible. " . $e->getMessage();
 
         header('Location: index.php?action=equipements_list_medecin&idDossier=' . $idDossier);
         exit;
@@ -184,67 +184,7 @@ function equipements_list_infirmier(): void
 }
 
 
-/**
- * Changer l’état d’un équipement pour infirmier.
- * Ici on garde simple :
- * - disponible -> occupe
- * - occupe -> disponible
- * - tout état sauf en_panne -> en_panne
- */
-function equipement_changer_etat_infirmier(): void
-{
-    requireRole('INFIRMIER');
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $idEquipement = (int)($_POST['idEquipement'] ?? 0);
-        $etat = trim((string)($_POST['etat'] ?? ''));
-    } else {
-        $idEquipement = (int)($_GET['idEquipement'] ?? 0);
-        $etat = trim((string)($_GET['etat'] ?? ''));
-    }
-
-    if ($idEquipement <= 0 || $etat === '') {
-        $_SESSION['flash_error'] = "Paramètres invalides.";
-        header('Location: index.php?action=equipements_list_infirmier');
-        exit;
-    }
-
-    $equipement = equipement_get_by_id($idEquipement);
-
-    if (!$equipement) {
-        $_SESSION['flash_error'] = "Équipement introuvable.";
-        header('Location: index.php?action=equipements_list_infirmier');
-        exit;
-    }
-
-    $etatActuel = (string)($equipement['etatEquipement'] ?? '');
-    $allowed = false;
-
-    if ($etatActuel === 'disponible' && $etat === 'occupe') {
-        $allowed = true;
-    }
-
-    if ($etatActuel === 'occupe' && $etat === 'disponible') {
-        $allowed = true;
-    }
-
-    if ($etat !== 'en_panne' && !$allowed) {
-        $_SESSION['flash_error'] = "Transition d’état non autorisée.";
-        header('Location: index.php?action=equipements_list_infirmier');
-        exit;
-    }
-
-    $ok = equipement_update_etat($idEquipement, $etat);
-
-    if ($ok) {
-        $_SESSION['flash_success'] = "État de l’équipement mis à jour avec succès.";
-    } else {
-        $_SESSION['flash_error'] = "Impossible de modifier l’état de l’équipement.";
-    }
-
-    header('Location: index.php?action=equipements_list_infirmier');
-    exit;
-}
 
 
 /**
@@ -316,7 +256,7 @@ function equipement_reserver_infirmier(): void
             exit;
         }
 
-        equipement_set_occupe($idEquipement);
+        equipement_set_reserve($idEquipement);
 
         $pdo->commit();
 
@@ -327,7 +267,7 @@ function equipement_reserver_infirmier(): void
     } catch (Throwable $e) {
         $pdo->rollBack();
 
-        $_SESSION['flash_error'] = "Erreur : réservation impossible.";
+        $_SESSION['flash_error'] = "Erreur : réservation impossible. " . $e->getMessage();
         header('Location: index.php?action=equipements_list_infirmier&idDossier=' . $idDossier);
         exit;
     }
@@ -367,5 +307,73 @@ function equipement_signaler_panne_infirmier(): void
     }
 
     header("Location: $url");
+    exit;
+}
+
+
+
+function equipement_utiliser(): void
+{
+    requireRole('INFIRMIER');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $idEquipement = (int)($_POST['idEquipement'] ?? 0);
+        $idDossier    = (int)($_POST['idDossier'] ?? 0);
+    } else {
+        $idEquipement = (int)($_GET['idEquipement'] ?? 0);
+        $idDossier    = (int)($_GET['idDossier'] ?? 0);
+    }
+
+    if ($idEquipement <= 0) {
+        $_SESSION['flash_error'] = "ID invalide.";
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    $equipement = equipement_get_by_id($idEquipement);
+
+    if (!$equipement || ($equipement['etatEquipement'] ?? '') !== 'reserve') {
+        $_SESSION['flash_error'] = "Seul un équipement réservé peut être utilisé.";
+        header('Location: index.php?action=dossier_detail&id=' . $idDossier);
+        exit;
+    }
+
+    equipement_set_occupe($idEquipement);
+
+    $_SESSION['flash_success'] = "Équipement maintenant en cours d'utilisation.";
+    header('Location: index.php?action=dossier_detail&id=' . $idDossier);
+    exit;
+}
+
+function equipement_liberer(): void
+{
+    requireRole('INFIRMIER');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $idEquipement = (int)($_POST['idEquipement'] ?? 0);
+        $idDossier    = (int)($_POST['idDossier'] ?? 0);
+    } else {
+        $idEquipement = (int)($_GET['idEquipement'] ?? 0);
+        $idDossier    = (int)($_GET['idDossier'] ?? 0);
+    }
+
+    if ($idEquipement <= 0) {
+        $_SESSION['flash_error'] = "ID invalide.";
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    $equipement = equipement_get_by_id($idEquipement);
+
+    if (!$equipement || ($equipement['etatEquipement'] ?? '') !== 'occupe') {
+        $_SESSION['flash_error'] = "Seul un équipement occupé peut être libéré.";
+        header('Location: index.php?action=dossier_detail&id=' . $idDossier);
+        exit;
+    }
+
+    equipement_update_etat($idEquipement, 'disponible');
+
+    $_SESSION['flash_success'] = "Équipement libéré.";
+    header('Location: index.php?action=dossier_detail&id=' . $idDossier);
     exit;
 }
