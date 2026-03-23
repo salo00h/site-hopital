@@ -763,3 +763,45 @@ textarea{ min-height: 90px; }
   text-align: left;
   vertical-align: top;
 }
+
+
+/* ===== Badge Statut Equipements ===== */
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-success {
+  background: #e8f7ee;
+  color: #1f7a3d;
+  border-color: #b9e4c7;
+}
+
+.badge-warning {
+  background: #fff4db;
+  color: #9a6700;
+  border-color: #f2d28b;
+}
+
+.badge-danger {
+  background: #fdeaea;
+  color: #b42318;
+  border-color: #f5b5b5;
+}
+
+.badge-dark {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.badge-secondary {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}

@@ -112,15 +112,17 @@ switch ($action) {
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_update();
         break;
+
     case 'validerSortieMedecin':
-     require_once APP_PATH . '/controllers/DossierController.php';
-     validerSortieMedecin();
-     break;
+        require_once APP_PATH . '/controllers/DossierController.php';
+        validerSortieMedecin();
+        break;
 
     case 'confirmerSortieInfirmier':
-     require_once APP_PATH . '/controllers/DossierController.php';
-     confirmerSortieInfirmier();
-     break;
+        require_once APP_PATH . '/controllers/DossierController.php';
+        confirmerSortieInfirmier();
+        break;
+
 
     // ==================================================
     // 4) GESTION DES LITS
@@ -248,7 +250,7 @@ switch ($action) {
     // ==================================================
     // 8) ÉQUIPEMENTS - MÉDECIN
     // Workflow :
-    // liste -> formulaire -> réservation -> signalement
+    // liste -> formulaire -> réservation -> signalement -> utiliser -> libérer
     // ==================================================
 
     case 'equipements_list_medecin':
@@ -273,6 +275,18 @@ switch ($action) {
         require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_signaler_panne();
+        break;
+
+    case 'equipement_utiliser_medecin':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_utiliser_medecin();
+        break;
+
+    case 'equipement_liberer_medecin':
+        require_once APP_PATH . '/includes/auth_guard.php';
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_liberer_medecin();
         break;
 
 

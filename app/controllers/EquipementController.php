@@ -17,15 +17,44 @@ require_once APP_PATH . '/includes/auth_guard.php';
 
 
 /**
- * Afficher la liste des équipements (médecin).
+ * Afficher la liste des équipements côté médecin.
+ * Même vue que l'infirmier : views/equipements/liste.php
  */
 function equipements_list_medecin(): void
 {
     requireRole('MEDECIN');
 
-    $equipements = equipements_get_all();
+    $equipements = equipements_get_all_with_patient();
 
-    require APP_PATH . '/views/equipements/liste_medecin.php';
+    /*
+    |----------------------------------------------------------------------
+    | Tri des équipements par priorité d'affichage
+    |----------------------------------------------------------------------
+    | Ordre :
+    | 1. reserve
+    | 2. occupe
+    | 3. disponible
+    | 4. en_panne
+    | 5. maintenance
+    | 6. HS
+    */
+    usort($equipements, function ($a, $b) {
+        $order = [
+            'reserve'     => 1,
+            'occupe'      => 2,
+            'disponible'  => 3,
+            'en_panne'    => 4,
+            'maintenance' => 5,
+            'HS'          => 6,
+        ];
+
+        $etatA = (string)($a['etatEquipement'] ?? '');
+        $etatB = (string)($b['etatEquipement'] ?? '');
+
+        return ($order[$etatA] ?? 99) <=> ($order[$etatB] ?? 99);
+    });
+
+    require APP_PATH . '/views/equipements/liste.php';
 }
 
 
@@ -68,7 +97,7 @@ function equipement_reserver_form(): void
  * Règles :
  * - L’équipement doit être disponible
  * - On enregistre la relation dossier ↔ équipement
- * - Puis on met l’équipement en état "occupe"
+ * - Puis on met l’équipement en état "reserve"
  *
  * Transaction :
  * INSERT + UPDATE doivent réussir ensemble.
@@ -133,8 +162,15 @@ function equipement_reserver(): void
 
 
 /**
- * Signaler une panne sur un équipement.
+ * Signaler une panne sur un équipement côté médecin.
  * Compatible avec ?idEquipement= ou ?id=
+ *
+ * Logique :
+ * - vérifier que l'équipement existe
+ * - refuser si l'équipement est déjà indisponible
+ * - passer l'équipement en panne
+ * - supprimer le lien éventuel avec le dossier patient
+ * - rediriger vers la liste médecin
  */
 function equipement_signaler_panne(): void
 {
@@ -143,25 +179,50 @@ function equipement_signaler_panne(): void
     $idEquipement = (int)($_GET['idEquipement'] ?? ($_GET['id'] ?? 0));
 
     if ($idEquipement <= 0) {
-        http_response_code(400);
-        echo "Paramètre idEquipement invalide.";
+        $_SESSION['flash_error'] = "Paramètre idEquipement invalide.";
+        header('Location: index.php?action=equipements_list_medecin');
         exit;
     }
 
-    $ok = equipement_set_panne($idEquipement);
+    $equipement = equipement_get_by_id($idEquipement);
 
-    if ($ok) {
-        $_SESSION['flash_success'] = "Panne signalée. L'équipement est maintenant en panne.";
-        $_SESSION['flash_error']   = "";
+    if (!$equipement) {
+        $_SESSION['flash_error'] = "Équipement introuvable.";
+        header('Location: index.php?action=equipements_list_medecin');
+        exit;
+    }
+
+    $etat = $equipement['etatEquipement'] ?? '';
+
+    /*
+    |----------------------------------------------------------------------
+    | Vérifier si l'équipement est déjà indisponible
+    |----------------------------------------------------------------------
+    | On évite de repasser en panne un équipement déjà :
+    | - en panne
+    | - en maintenance
+    | - hors service (HS)
+    */
+    if (in_array($etat, ['en_panne', 'maintenance', 'HS'], true)) {
+        $_SESSION['flash_error'] = "L'équipement est déjà indisponible.";
     } else {
-        $_SESSION['flash_success'] = "";
-        $_SESSION['flash_error']   = "Erreur : impossible de signaler la panne.";
+        equipement_set_panne($idEquipement);
+
+        /*
+        |------------------------------------------------------------------
+        | Supprimer le lien avec le patient
+        |------------------------------------------------------------------
+        | Si l'équipement était lié à un dossier patient,
+        | on supprime ce lien pour éviter un affichage incohérent.
+        */
+        gestion_equipement_delete_by_equipement($idEquipement);
+
+        $_SESSION['flash_success'] = "Panne signalée. L'équipement est maintenant en panne.";
     }
 
     $idDossier = (int)($_GET['idDossier'] ?? 0);
 
     $url = "index.php?action=equipements_list_medecin";
-
     if ($idDossier > 0) {
         $url .= "&idDossier=" . $idDossier;
     }
@@ -173,18 +234,44 @@ function equipement_signaler_panne(): void
 
 /**
  * Liste des équipements pour infirmier.
+ * Même vue que le médecin : views/equipements/liste.php
  */
 function equipements_list_infirmier(): void
 {
     requireRole('INFIRMIER');
 
-    $equipements = equipements_get_all();
+    $equipements = equipements_get_all_with_patient();
 
-    require APP_PATH . '/views/equipements/liste_infirmier.php';
+    /*
+    |----------------------------------------------------------------------
+    | Tri des équipements par priorité d'affichage
+    |----------------------------------------------------------------------
+    | Ordre :
+    | 1. reserve
+    | 2. occupe
+    | 3. disponible
+    | 4. en_panne
+    | 5. maintenance
+    | 6. HS
+    */
+    usort($equipements, function ($a, $b) {
+        $order = [
+            'reserve'     => 1,
+            'occupe'      => 2,
+            'disponible'  => 3,
+            'en_panne'    => 4,
+            'maintenance' => 5,
+            'HS'          => 6,
+        ];
+
+        $etatA = (string)($a['etatEquipement'] ?? '');
+        $etatB = (string)($b['etatEquipement'] ?? '');
+
+        return ($order[$etatA] ?? 99) <=> ($order[$etatB] ?? 99);
+    });
+
+    require APP_PATH . '/views/equipements/liste.php';
 }
-
-
-
 
 
 /**
@@ -275,7 +362,14 @@ function equipement_reserver_infirmier(): void
 
 
 /**
- * Signaler une panne sur un équipement pour infirmier.
+ * Signaler une panne sur un équipement côté infirmier.
+ *
+ * Logique :
+ * - vérifier que l'équipement existe
+ * - refuser si l'équipement est déjà indisponible
+ * - passer l'équipement en panne
+ * - supprimer le lien éventuel avec le dossier patient
+ * - rediriger vers la liste infirmier
  */
 function equipement_signaler_panne_infirmier(): void
 {
@@ -289,14 +383,40 @@ function equipement_signaler_panne_infirmier(): void
         exit;
     }
 
-    $ok = equipement_set_panne($idEquipement);
+    $equipement = equipement_get_by_id($idEquipement);
 
-    if ($ok) {
-        $_SESSION['flash_success'] = "Panne signalée. L'équipement est maintenant en panne.";
-        $_SESSION['flash_error'] = "";
+    if (!$equipement) {
+        $_SESSION['flash_error'] = "Équipement introuvable.";
+        header('Location: index.php?action=equipements_list_infirmier');
+        exit;
+    }
+
+    $etat = $equipement['etatEquipement'] ?? '';
+
+    /*
+    |----------------------------------------------------------------------
+    | Vérifier si l'équipement est déjà indisponible
+    |----------------------------------------------------------------------
+    | On bloque l'action si l'équipement est déjà :
+    | - en panne
+    | - en maintenance
+    | - HS
+    */
+    if (in_array($etat, ['en_panne', 'maintenance', 'HS'], true)) {
+        $_SESSION['flash_error'] = "L'équipement est déjà indisponible.";
     } else {
-        $_SESSION['flash_success'] = "";
-        $_SESSION['flash_error'] = "Erreur : impossible de signaler la panne.";
+        equipement_set_panne($idEquipement);
+
+        /*
+        |------------------------------------------------------------------
+        | Supprimer le lien avec le dossier patient
+        |------------------------------------------------------------------
+        | Si l'équipement était réservé ou occupé,
+        | on enlève le lien pour éviter une incohérence.
+        */
+        gestion_equipement_delete_by_equipement($idEquipement);
+
+        $_SESSION['flash_success'] = "Panne signalée. L'équipement est maintenant en panne.";
     }
 
     $idDossier = (int)($_GET['idDossier'] ?? 0);
@@ -311,7 +431,9 @@ function equipement_signaler_panne_infirmier(): void
 }
 
 
-
+/**
+ * Mettre un équipement réservé en cours d'utilisation côté infirmier.
+ */
 function equipement_utiliser(): void
 {
     requireRole('INFIRMIER');
@@ -345,6 +467,12 @@ function equipement_utiliser(): void
     exit;
 }
 
+
+/**
+ * Libérer un équipement côté infirmier.
+ * On remet l'équipement disponible
+ * et on supprime le lien avec le dossier.
+ */
 function equipement_liberer(): void
 {
     requireRole('INFIRMIER');
@@ -372,8 +500,86 @@ function equipement_liberer(): void
     }
 
     equipement_update_etat($idEquipement, 'disponible');
+    gestion_equipement_delete_by_equipement($idEquipement);
 
     $_SESSION['flash_success'] = "Équipement libéré.";
     header('Location: index.php?action=dossier_detail&id=' . $idDossier);
+    exit;
+}
+
+
+/**
+ * Mettre un équipement réservé en cours d'utilisation côté médecin.
+ */
+function equipement_utiliser_medecin(): void
+{
+    requireRole('MEDECIN');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $idEquipement = (int)($_POST['idEquipement'] ?? 0);
+        $idDossier    = (int)($_POST['idDossier'] ?? 0);
+    } else {
+        $idEquipement = (int)($_GET['idEquipement'] ?? 0);
+        $idDossier    = (int)($_GET['idDossier'] ?? 0);
+    }
+
+    if ($idEquipement <= 0) {
+        $_SESSION['flash_error'] = "ID invalide.";
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    $equipement = equipement_get_by_id($idEquipement);
+
+    if (!$equipement || ($equipement['etatEquipement'] ?? '') !== 'reserve') {
+        $_SESSION['flash_error'] = "Seul un équipement réservé peut être utilisé.";
+        header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+        exit;
+    }
+
+    equipement_set_occupe($idEquipement);
+
+    $_SESSION['flash_success'] = "Équipement maintenant en cours d'utilisation.";
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+    exit;
+}
+
+
+/**
+ * Libérer un équipement côté médecin.
+ * On remet l'équipement disponible
+ * et on supprime le lien avec le dossier.
+ */
+function equipement_liberer_medecin(): void
+{
+    requireRole('MEDECIN');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $idEquipement = (int)($_POST['idEquipement'] ?? 0);
+        $idDossier    = (int)($_POST['idDossier'] ?? 0);
+    } else {
+        $idEquipement = (int)($_GET['idEquipement'] ?? 0);
+        $idDossier    = (int)($_GET['idDossier'] ?? 0);
+    }
+
+    if ($idEquipement <= 0) {
+        $_SESSION['flash_error'] = "ID invalide.";
+        header('Location: index.php?action=dossiers_list');
+        exit;
+    }
+
+    $equipement = equipement_get_by_id($idEquipement);
+
+    if (!$equipement || ($equipement['etatEquipement'] ?? '') !== 'occupe') {
+        $_SESSION['flash_error'] = "Seul un équipement occupé peut être libéré.";
+        header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+        exit;
+    }
+
+    equipement_update_etat($idEquipement, 'disponible');
+    gestion_equipement_delete_by_equipement($idEquipement);
+
+    $_SESSION['flash_success'] = "Équipement libéré.";
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
     exit;
 }

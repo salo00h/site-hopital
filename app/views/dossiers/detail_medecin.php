@@ -358,7 +358,41 @@ if ($statutDernierTransfert !== '') {
             <td><?= $h($eq['typeEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['numeroEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['localisation'] ?? '-') ?></td>
-            <td><?= $h($eq['etatEquipement'] ?? '-') ?></td>
+
+            <td>
+              <?php
+              // On récupère l'état de l'équipement
+              // pour afficher aussi les boutons d'action.
+              $etatEq = (string)($eq['etatEquipement'] ?? '');
+              ?>
+              <?= $h($etatEq !== '' ? $etatEq : '-') ?>
+
+              <?php if (($_SESSION['user']['role'] ?? '') === 'MEDECIN'): ?>
+                <?php if ($etatEq === 'reserve'): ?>
+                  <form method="post"
+                        action="index.php?action=equipement_utiliser_medecin"
+                        style="display:inline-block; margin-left:10px;">
+                    <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
+                    <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
+                    <button type="submit" class="btn btn-primary">
+                      Utiliser
+                    </button>
+                  </form>
+
+                <?php elseif ($etatEq === 'occupe'): ?>
+                  <form method="post"
+                        action="index.php?action=equipement_liberer_medecin"
+                        style="display:inline-block; margin-left:10px;"
+                        onsubmit="return confirm('Libérer cet équipement ?');">
+                    <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
+                    <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
+                    <button type="submit" class="btn btn-danger">
+                      Libérer
+                    </button>
+                  </form>
+                <?php endif; ?>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>

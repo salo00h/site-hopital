@@ -39,6 +39,19 @@ function equipements_get_stats(): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function equipements_count_disponibles(): int
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT COUNT(*) 
+        FROM EQUIPEMENT
+        WHERE etatEquipement = 'disponible'
+    ";
+
+    return (int) $pdo->query($sql)->fetchColumn();
+}
+
 
 /**
  * Retourne tous les équipements (tous les états).
@@ -304,3 +317,56 @@ function equipement_set_reserve(int $idEquipement): void
     $stmt->execute([$idEquipement]);
 }
 
+
+function equipements_get_all_with_patient(): array
+{
+    $pdo = db();
+
+    $sql = "
+        SELECT
+            e.idEquipement,
+            e.typeEquipement,
+            e.numeroEquipement,
+            e.localisation,
+            e.etatEquipement,
+            d.idDossier,
+            p.nom,
+            p.prenom
+        FROM EQUIPEMENT e
+        LEFT JOIN GESTION_EQUIPEMENT g
+            ON g.idEquipement = e.idEquipement
+        LEFT JOIN DOSSIER_PATIENT d
+            ON d.idDossier = g.idDossier
+        LEFT JOIN PATIENT p
+            ON p.idPatient = d.idPatient
+        ORDER BY
+            CASE e.etatEquipement
+                WHEN 'reserve' THEN 1
+                WHEN 'occupe' THEN 2
+                WHEN 'disponible' THEN 3
+                WHEN 'en_panne' THEN 4
+                WHEN 'maintenance' THEN 5
+                WHEN 'HS' THEN 6
+                ELSE 99
+            END,
+            e.typeEquipement ASC
+    ";
+
+    $stmt = $pdo->query($sql);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+function gestion_equipement_delete_by_equipement(int $idEquipement): bool
+{
+    $pdo = db();
+
+    $sql = "
+        DELETE FROM GESTION_EQUIPEMENT
+        WHERE idEquipement = ?
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$idEquipement]);
+}
