@@ -87,14 +87,15 @@ function getLitStatsByService(int $idService = 0): array
 function getLitsByService(int $idService = 0): array
 {
     $sql = "
-        SELECT 
+        SELECT
             l.idLit,
             l.numeroLit,
             l.etatLit,
-            s.libelle AS serviceNom
+            l.idService,
+            s.nom AS serviceNom
         FROM lit l
         LEFT JOIN service s ON s.idService = l.idService
-        ORDER BY s.libelle ASC, l.numeroLit ASC
+        ORDER BY s.nom ASC, l.numeroLit ASC
     ";
 
     $stmt = db()->prepare($sql);
@@ -102,7 +103,6 @@ function getLitsByService(int $idService = 0): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
-
 /**
  * Retourne les lits disponibles d'un service.
  */
