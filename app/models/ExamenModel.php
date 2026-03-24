@@ -219,7 +219,7 @@ function examens_get_recent_with_patient(int $limit = 10): array
 function examens_types_all(): array
 {
     $sql = "
-        SELECT libelle
+        SELECT idType, libelle
         FROM type_examen
         ORDER BY libelle ASC
     ";
@@ -229,7 +229,6 @@ function examens_types_all(): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
-
 /**
  * Enregistre le résultat d'un examen
  * et passe automatiquement son statut à TERMINE.
