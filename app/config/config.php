@@ -1,15 +1,19 @@
-
-
 <?php
 
-// Fichier de configuration de la connexion à la base de données (PDO)
-// Contient les paramètres nécessaires : host, port, nom de la BDD et identifiants
+/*
+|--------------------------------------------------------------------------
+| Configuration de la base de données
+|--------------------------------------------------------------------------
+| Ce fichier lit d'abord les variables d'environnement du serveur
+| (Railway / Render). Si elles n'existent pas, il utilise les valeurs
+| locales pour travailler sur Windows en développement.
+*/
 
 return [
-  'host' => 'localhost',       // serveur MySQL
-  'port' => 3307,             // port utilisé par MySQL
-  'dbname' => 'filrouge',    // nom de la base de données
-  'user' => 'root',          // utilisateur MySQL
-  'pass' => 'S@leh',         // mot de passe
-  'charset' => 'utf8mb4'      // encodage pour supporter tous les caractères
+    'host' => getenv('DB_HOST') ?: getenv('MYSQLHOST') ?: 'localhost',
+    'port' => (int) (getenv('DB_PORT') ?: getenv('MYSQLPORT') ?: 3307),
+    'dbname' => getenv('DB_NAME') ?: getenv('MYSQLDATABASE') ?: 'filrouge',
+    'user' => getenv('DB_USER') ?: getenv('MYSQLUSER') ?: 'root',
+    'pass' => getenv('DB_PASS') ?: getenv('MYSQLPASSWORD') ?: 'S@leh',
+    'charset' => 'utf8mb4',
 ];
