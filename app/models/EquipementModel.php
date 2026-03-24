@@ -9,15 +9,15 @@ declare(strict_types=1);
  - Contenir uniquement les requêtes SQL liées aux équipements.
  - Aucune logique métier ou affichage ici.
  - Le contrôleur appelle ces fonctions.
+ - Les noms des tables respectent la base réelle en lowercase.
 ==================================================
 */
 
 require_once APP_PATH . '/config/database.php';
 
-
 /**
  * Retourne les statistiques des équipements
- * (nombre disponibles / total par type).
+ * par type : nombre disponibles et total.
  * Utilisé dans le dashboard médecin.
  */
 function equipements_get_stats(): array
@@ -29,32 +29,40 @@ function equipements_get_stats(): array
             typeEquipement AS type,
             SUM(CASE WHEN etatEquipement = 'disponible' THEN 1 ELSE 0 END) AS disponibles,
             COUNT(*) AS total
-        FROM EQUIPEMENT
+        FROM equipement
         GROUP BY typeEquipement
         ORDER BY typeEquipement ASC
     ";
 
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+/**
+ * Compte le nombre total d'équipements disponibles.
+ */
 function equipements_count_disponibles(): int
 {
     $pdo = db();
 
     $sql = "
-        SELECT COUNT(*) 
-        FROM EQUIPEMENT
-        WHERE etatEquipement = 'disponible'
+        SELECT COUNT(*) AS nb
+        FROM equipement
+        WHERE etatEquipement = :etat
     ";
 
-    return (int) $pdo->query($sql)->fetchColumn();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':etat' => 'disponible',
+    ]);
+
+    return (int) $stmt->fetchColumn();
 }
 
-
 /**
- * Retourne tous les équipements (tous les états).
+ * Retourne tous les équipements.
  * Utilisé pour l'affichage dans la liste médecin.
  */
 function equipements_get_all(): array
@@ -68,17 +76,15 @@ function equipements_get_all(): array
             numeroEquipement,
             localisation,
             etatEquipement
-        FROM EQUIPEMENT
-        ORDER BY typeEquipement ASC
+        FROM equipement
+        ORDER BY typeEquipement ASC, numeroEquipement ASC
     ";
 
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
-
-
-
 
 /**
  * Retourne un équipement par son ID.
@@ -89,20 +95,27 @@ function equipement_get_by_id(int $idEquipement): ?array
     $pdo = db();
 
     $sql = "
-        SELECT *
-        FROM EQUIPEMENT
-        WHERE idEquipement = ?
+        SELECT
+            idEquipement,
+            typeEquipement,
+            numeroEquipement,
+            etatEquipement,
+            localisation,
+            idService
+        FROM equipement
+        WHERE idEquipement = :idEquipement
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$idEquipement]);
+    $stmt->execute([
+        ':idEquipement' => $idEquipement,
+    ]);
 
     $equipement = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $equipement ?: null;
 }
-
 
 /**
  * Change l’état d’un équipement en 'occupe'.
@@ -113,23 +126,25 @@ function equipement_set_occupe(int $idEquipement): void
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
-        SET etatEquipement = 'occupe'
-        WHERE idEquipement = ?
+        UPDATE equipement
+        SET etatEquipement = :etat
+        WHERE idEquipement = :idEquipement
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$idEquipement]);
+    $stmt->execute([
+        ':etat' => 'occupe',
+        ':idEquipement' => $idEquipement,
+    ]);
 }
 
-
 /**
- * Ajoute un lien entre un dossier et un équipement (réservation).
- * On stocke la relation dans GESTION_EQUIPEMENT.
+ * Ajoute un lien entre un dossier et un équipement.
  *
- *  IMPORTANT :
- * - Retourne false si l'équipement est en panne ou non disponible.
- * - Ne fait pas de exit() : le contrôleur gère les messages utilisateur.
+ * Important :
+ * - Retourne false si l'équipement n'est pas réservable.
+ * - Retourne true si le lien existe déjà.
+ * - Ne fait pas de sortie directe, le contrôleur gère la suite.
  */
 function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 {
@@ -141,27 +156,39 @@ function gestion_equipement_add(int $idDossier, int $idEquipement): bool
 
     $checkSql = "
         SELECT COUNT(*) AS nb
-        FROM GESTION_EQUIPEMENT
-        WHERE idDossier = ? AND idEquipement = ?
+        FROM gestion_equipement
+        WHERE idDossier = :idDossier
+          AND idEquipement = :idEquipement
     ";
+
     $check = $pdo->prepare($checkSql);
-    $check->execute([$idDossier, $idEquipement]);
+    $check->execute([
+        ':idDossier' => $idDossier,
+        ':idEquipement' => $idEquipement,
+    ]);
+
     $row = $check->fetch(PDO::FETCH_ASSOC);
 
     if ((int)($row['nb'] ?? 0) > 0) {
         return true;
     }
 
-    $sql = "INSERT INTO GESTION_EQUIPEMENT (idDossier, idEquipement) VALUES (?, ?)";
+    $sql = "
+        INSERT INTO gestion_equipement (idDossier, idEquipement)
+        VALUES (:idDossier, :idEquipement)
+    ";
+
     $stmt = $pdo->prepare($sql);
 
-    return (bool)$stmt->execute([$idDossier, $idEquipement]);
+    return $stmt->execute([
+        ':idDossier' => $idDossier,
+        ':idEquipement' => $idEquipement,
+    ]);
 }
-
 
 /**
  * Retourne les équipements liés à un dossier.
- * Utilisé uniquement dans la vue médecin.
+ * Utilisé dans la vue médecin.
  */
 function gestion_equipements_by_dossier(int $idDossier): array
 {
@@ -174,39 +201,47 @@ function gestion_equipements_by_dossier(int $idDossier): array
             e.numeroEquipement,
             e.localisation,
             e.etatEquipement
-        FROM GESTION_EQUIPEMENT g
-        JOIN EQUIPEMENT e ON e.idEquipement = g.idEquipement
-        WHERE g.idDossier = ?
-        ORDER BY e.typeEquipement ASC
+        FROM gestion_equipement g
+        INNER JOIN equipement e ON e.idEquipement = g.idEquipement
+        WHERE g.idDossier = :idDossier
+        ORDER BY e.typeEquipement ASC, e.numeroEquipement ASC
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$idDossier]);
+    $stmt->execute([
+        ':idDossier' => $idDossier,
+    ]);
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
-
 
 /**
  * Retourne un résumé des équipements par dossier.
- * Exemple: [ 10 => "Cardiologie#2, Radiologie#1", ... ]
+ * Exemple :
+ * [10 => "Scanner#2, Moniteur#1"]
  */
 function equipements_resume_par_dossier(array $idsDossiers): array
 {
+    $idsDossiers = array_values(array_unique(array_map('intval', $idsDossiers)));
+    $idsDossiers = array_values(array_filter($idsDossiers, static fn(int $id): bool => $id > 0));
+
     if (empty($idsDossiers)) {
         return [];
     }
 
     $pdo = db();
-
     $placeholders = implode(',', array_fill(0, count($idsDossiers), '?'));
 
     $sql = "
         SELECT
             g.idDossier,
-            GROUP_CONCAT(CONCAT(e.typeEquipement, '#', e.numeroEquipement) ORDER BY e.typeEquipement SEPARATOR ', ') AS resume
-        FROM GESTION_EQUIPEMENT g
-        JOIN EQUIPEMENT e ON e.idEquipement = g.idEquipement
+            GROUP_CONCAT(
+                CONCAT(e.typeEquipement, '#', e.numeroEquipement)
+                ORDER BY e.typeEquipement, e.numeroEquipement
+                SEPARATOR ', '
+            ) AS resume
+        FROM gestion_equipement g
+        INNER JOIN equipement e ON e.idEquipement = g.idEquipement
         WHERE g.idDossier IN ($placeholders)
         GROUP BY g.idDossier
     ";
@@ -214,45 +249,38 @@ function equipements_resume_par_dossier(array $idsDossiers): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute($idsDossiers);
 
-    $out = [];
+    $result = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $out[(int)$row['idDossier']] = (string)$row['resume'];
+        $result[(int)$row['idDossier']] = (string)$row['resume'];
     }
 
-    return $out;
+    return $result;
 }
 
-
 /**
- * Mettre un équipement en panne.
- *
- * Cette fonction met à jour l'état de l'équipement
- * et le passe à "en_panne".
+ * Met un équipement en panne.
  */
 function equipement_set_panne(int $idEquipement): bool
 {
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
-        SET etatEquipement = 'en_panne'
+        UPDATE equipement
+        SET etatEquipement = :etat
         WHERE idEquipement = :id
-        LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
 
     return $stmt->execute([
-        ':id' => $idEquipement
+        ':etat' => 'en_panne',
+        ':id' => $idEquipement,
     ]);
 }
 
-
 /**
- * Vérifie si l'équipement est réservable.
- *
- * Un équipement est réservable uniquement
- * si son état est "disponible".
+ * Vérifie si un équipement est réservable.
+ * Un équipement est réservable seulement si son état est 'disponible'.
  */
 function equipement_is_reservable(int $idEquipement): bool
 {
@@ -260,64 +288,66 @@ function equipement_is_reservable(int $idEquipement): bool
 
     $sql = "
         SELECT etatEquipement
-        FROM EQUIPEMENT
+        FROM equipement
         WHERE idEquipement = :id
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':id' => $idEquipement
+        ':id' => $idEquipement,
     ]);
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
     $etat = (string)($row['etatEquipement'] ?? '');
 
-    return ($etat === 'disponible');
+    return $etat === 'disponible';
 }
 
-
-
-
 /**
- * Mise à jour de l’état d’un équipement.
+ * Met à jour l’état d’un équipement.
  */
 function equipement_update_etat(int $idEquipement, string $etat): bool
 {
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
+        UPDATE equipement
         SET etatEquipement = :etat
         WHERE idEquipement = :id
-        LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
 
     return $stmt->execute([
         ':etat' => $etat,
-        ':id'   => $idEquipement,
+        ':id' => $idEquipement,
     ]);
 }
 
-
+/**
+ * Change l’état d’un équipement en 'reserve'.
+ */
 function equipement_set_reserve(int $idEquipement): void
 {
     $pdo = db();
 
     $sql = "
-        UPDATE EQUIPEMENT
-        SET etatEquipement = 'reserve'
-        WHERE idEquipement = ?
+        UPDATE equipement
+        SET etatEquipement = :etat
+        WHERE idEquipement = :idEquipement
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$idEquipement]);
+    $stmt->execute([
+        ':etat' => 'reserve',
+        ':idEquipement' => $idEquipement,
+    ]);
 }
 
-
+/**
+ * Retourne tous les équipements avec le patient lié si présent.
+ */
 function equipements_get_all_with_patient(): array
 {
     $pdo = db();
@@ -332,12 +362,12 @@ function equipements_get_all_with_patient(): array
             d.idDossier,
             p.nom,
             p.prenom
-        FROM EQUIPEMENT e
-        LEFT JOIN GESTION_EQUIPEMENT g
+        FROM equipement e
+        LEFT JOIN gestion_equipement g
             ON g.idEquipement = e.idEquipement
-        LEFT JOIN DOSSIER_PATIENT d
+        LEFT JOIN dossier_patient d
             ON d.idDossier = g.idDossier
-        LEFT JOIN PATIENT p
+        LEFT JOIN patient p
             ON p.idPatient = d.idPatient
         ORDER BY
             CASE e.etatEquipement
@@ -349,24 +379,31 @@ function equipements_get_all_with_patient(): array
                 WHEN 'HS' THEN 6
                 ELSE 99
             END,
-            e.typeEquipement ASC
+            e.typeEquipement ASC,
+            e.numeroEquipement ASC
     ";
 
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
-
+/**
+ * Supprime les liens de gestion pour un équipement donné.
+ */
 function gestion_equipement_delete_by_equipement(int $idEquipement): bool
 {
     $pdo = db();
 
     $sql = "
-        DELETE FROM GESTION_EQUIPEMENT
-        WHERE idEquipement = ?
+        DELETE FROM gestion_equipement
+        WHERE idEquipement = :idEquipement
     ";
 
     $stmt = $pdo->prepare($sql);
-    return $stmt->execute([$idEquipement]);
+
+    return $stmt->execute([
+        ':idEquipement' => $idEquipement,
+    ]);
 }
