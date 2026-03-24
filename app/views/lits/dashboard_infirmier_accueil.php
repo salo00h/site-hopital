@@ -47,7 +47,7 @@
     <tr>
       <th>Numéro</th>
       <th>État</th>
-      <th>Service</th>
+      <th>Service médical</th>
     </tr>
     <?php foreach (($lits ?? []) as $lit): ?>
       <tr>
