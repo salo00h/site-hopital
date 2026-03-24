@@ -219,9 +219,9 @@ function examens_get_recent_with_patient(int $limit = 10): array
 function examens_types_all(): array
 {
     $sql = "
-        SELECT *
+        SELECT libelle
         FROM type_examen
-        ORDER BY idTypeExamen ASC
+        ORDER BY libelle ASC
     ";
 
     $stmt = db()->prepare($sql);
