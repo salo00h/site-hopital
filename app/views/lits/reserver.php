@@ -27,20 +27,45 @@
         <label>Lit disponible</label>
         <select name="idLit" required>
           <option value="">-- Choisir --</option>
+
           <?php foreach ($availableLits as $lit): ?>
-            <option value="<?= (int)$lit['idLit'] ?>">Lit #<?= (int)$lit['numeroLit'] ?></option>
+            <?php
+              /*
+                Affichage plus clair du lit dans la liste :
+                - numéro du lit
+                - nom du service
+                Si le nom du service est absent, on affiche "Non défini".
+              */
+              $serviceNom = trim((string)($lit['serviceNom'] ?? ''));
+              if ($serviceNom === '') {
+                  $serviceNom = 'Non défini';
+              }
+            ?>
+            <option value="<?= (int)$lit['idLit'] ?>">
+              Lit #<?= (int)$lit['numeroLit'] ?> — <?= htmlspecialchars($serviceNom, ENT_QUOTES, 'UTF-8') ?>
+            </option>
           <?php endforeach; ?>
         </select>
       </p>
 
       <p>
         <label>Date début de réservation</label>
-        <input type="datetime-local" name="dateDebut" value="<?= htmlspecialchars(date('Y-m-d\TH:i'), ENT_QUOTES, 'UTF-8') ?>" required>
+        <input
+          type="datetime-local"
+          name="dateDebut"
+          value="<?= htmlspecialchars(date('Y-m-d\TH:i'), ENT_QUOTES, 'UTF-8') ?>"
+          required
+        >
       </p>
 
       <p>
         <label>Date fin prévue</label>
-        <input type="datetime-local" name="dateFin" value="<?= htmlspecialchars(date('Y-m-d\TH:i', time() + 2 * 3600), ENT_QUOTES, 'UTF-8') ?>" required>
+        <input
+          type="datetime-local"
+          name="dateFin"
+          value="<?= htmlspecialchars(date('Y-m-d\TH:i', time() + 2 * 3600), ENT_QUOTES, 'UTF-8') ?>"
+          required
+        >
       </p>
 
       <div class="form-actions">
