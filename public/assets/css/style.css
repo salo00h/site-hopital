@@ -805,3 +805,126 @@ textarea{ min-height: 90px; }
   color: #4338ca;
   border-color: #c7d2fe;
 }
+
+
+.page-subtitle{
+  margin: -8px 0 18px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* =========================
+   PAGE DE CONNEXION (STYLE MAQUETTE)
+   ========================= */
+
+/* Barre supérieure bleue */
+.login-topbar{
+  background: #6fa8dc;
+  padding: 14px 20px;
+}
+
+/* Contenu de la barre (logo + nom) */
+.login-brand{
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #000;
+}
+
+/* Placeholder du logo (temporaire) */
+.logo-placeholder{
+  font-size: 18px;
+}
+
+/* Conteneur principal centré */
+.login-page{
+  height: calc(100vh - 60px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f4f6f8;
+}
+
+/* Carte de connexion */
+.login-card{
+  background: #fff;
+  padding: 28px;
+  width: 360px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+/* Titre du formulaire */
+.login-subtitle{
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* Zone du lien mot de passe oublié */
+.login-links{
+  text-align: center;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+/* Style du lien */
+.login-links a{
+  font-size: 13px;
+}
+
+/* =========================
+   LOGIN VERSION MAQUETTE (BOX CENTRÉ)
+   ========================= */
+
+/* Fond gris général */
+body{
+  background: #f4f6f8;
+}
+
+/* Conteneur global centré */
+.login-wrapper{
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Boîte principale */
+.login-container{
+  width: 420px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+/* Barre bleue (à l'intérieur du box) */
+.login-topbar{
+  background: #6fa8dc;
+  padding: 12px 16px;
+}
+
+/* Contenu barre */
+.login-brand{
+  font-weight: 800;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Corps du formulaire */
+.login-body{
+  padding: 24px;
+}
+
+/* Titre */
+.login-subtitle{
+  text-align: center;
+  margin-bottom: 18px;
+  font-size: 20px;
+  font-weight: 700;
+}
