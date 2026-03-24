@@ -1,7 +1,8 @@
 <?php require __DIR__ . '/../../includes/header.php'; ?>
 <?php require __DIR__ . '/../../includes/sidebar.php'; ?>
 
-<h1 class="page-title">Dashboard des lits (Service)</h1>
+<h1 class="page-title">Dashboard global des lits</h1>
+<p class="page-subtitle">Vue générale de tous les lits de l’hôpital.</p>
 
 <?php if (!empty($error)): ?>
   <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
@@ -30,7 +31,7 @@
   </div>
 
   <div class="stat-card">
-    <div class="stat-label">Taux d’occupation</div>
+    <div class="stat-label">Taux d’occupation global</div>
     <div class="stat-value"><?= (int)$tauxOccupation ?>%</div>
     <div class="progress">
       <div class="progress-bar" style="width: <?= (int)$tauxOccupation ?>%"></div>
@@ -39,17 +40,20 @@
 </div>
 
 <div class="card">
-  <div class="card-title">Liste des lits</div>
+  <div class="card-title">Liste globale des lits</div>
+  <p class="card-subtitle">Tous les lits de l’hôpital avec leur état actuel.</p>
 
   <table class="table">
     <tr>
       <th>Numéro</th>
       <th>État</th>
+      <th>Service</th>
     </tr>
     <?php foreach (($lits ?? []) as $lit): ?>
       <tr>
         <td><?= (int)$lit['numeroLit'] ?></td>
         <td><?= htmlspecialchars($lit['etatLit']) ?></td>
+        <td>Service #<?= (int)$lit['idService'] ?></td>
       </tr>
     <?php endforeach; ?>
   </table>
