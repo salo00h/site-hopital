@@ -34,6 +34,33 @@ require_once APP_PATH . '/config/database.php';
 // Si aucune action n’est donnée, on affiche le formulaire de connexion.
 $action = $_GET['action'] ?? 'login_form';
 
+// ===============================
+// SÉCURITÉ GLOBALE
+// ===============================
+// On centralise ici la vérification de connexion
+// pour éviter de la répéter dans chaque case.
+require_once APP_PATH . '/includes/auth_guard.php';
+
+/**
+ * Liste des actions publiques (sans login)
+ */
+$publicActions = [
+    'login_form',
+    'login',
+    'logout'
+];
+
+/**
+ * Si l'action n'est pas publique, l'utilisateur doit être connecté.
+ */
+if (!in_array($action, $publicActions, true)) {
+    if (empty($_SESSION['user'])) {
+        $_SESSION['flash_error'] = "Veuillez vous connecter.";
+        header('Location: index.php?action=login_form');
+        exit;
+    }
+}
+
 switch ($action) {
 
     // ==================================================
@@ -65,7 +92,6 @@ switch ($action) {
 
     case 'dashboard':
         // Page protégée : utilisateur connecté obligatoire.
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DashboardController.php';
         dashboard();
         break;
@@ -78,37 +104,31 @@ switch ($action) {
     // ==================================================
 
     case 'dossiers_list':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossiers_list();
         break;
 
     case 'dossier_detail':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_detail();
         break;
 
     case 'dossier_create_form':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_create_form();
         break;
 
     case 'dossier_create':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_create();
         break;
 
     case 'dossier_edit_form':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_edit_form();
         break;
 
     case 'dossier_update':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_update();
         break;
@@ -122,7 +142,7 @@ switch ($action) {
         require_once APP_PATH . '/controllers/DossierController.php';
         confirmerSortieInfirmier();
         break;
-
+   
 
     // ==================================================
     // 4) GESTION DES LITS
@@ -131,34 +151,29 @@ switch ($action) {
     // ==================================================
 
     case 'lits_dashboard':
-        // Protection ajoutée : accès réservé aux utilisateurs connectés.
-        require_once APP_PATH . '/includes/auth_guard.php';
+        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lits_dashboard();
         break;
 
     case 'lit_reserver_form':
-        // Protection ajoutée : accès réservé aux utilisateurs connectés.
-        require_once APP_PATH . '/includes/auth_guard.php';
+        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lit_reserver_form();
         break;
 
     case 'lit_reserver':
-        // Protection ajoutée : accès réservé aux utilisateurs connectés.
-        require_once APP_PATH . '/includes/auth_guard.php';
+        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lit_reserver();
         break;
 
     case 'lits_list_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/LitController.php';
         lits_list_infirmier();
         break;
 
     case 'lit_changer_etat_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/LitController.php';
         lit_changer_etat_infirmier();
         break;
@@ -171,8 +186,7 @@ switch ($action) {
     // ==================================================
 
     case 'confirmer_installation_patient':
-        // Protection ajoutée : accès réservé aux utilisateurs connectés.
-        require_once APP_PATH . '/includes/auth_guard.php';
+        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/DossierController.php';
         confirmer_installation_patient();
         break;
@@ -185,23 +199,30 @@ switch ($action) {
     // ==================================================
 
     case 'dossier_detail_medecin':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_detail_medecin();
         break;
 
     case 'dossier_commencer_consultation':
-        // Protection ajoutée : accès réservé aux utilisateurs connectés.
-        require_once APP_PATH . '/includes/auth_guard.php';
+        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_commencer_consultation();
         break;
 
     case 'dossier_demander_transfert':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_demander_transfert();
         break;
+
+    case 'dossier_edit_medecin_form':
+     require_once APP_PATH . '/controllers/DossierController.php';
+     dossier_edit_medecin_form();
+     break;
+
+    case 'dossier_update_medecin':
+     require_once APP_PATH . '/controllers/DossierController.php';
+     dossier_update_medecin();
+     break;
 
 
     // ==================================================
@@ -211,37 +232,31 @@ switch ($action) {
     // ==================================================
 
     case 'equipements_list_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipements_list_infirmier();
         break;
 
     case 'equipement_reserver_form_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_reserver_form_infirmier();
         break;
 
     case 'equipement_reserver_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_reserver_infirmier();
         break;
 
     case 'equipement_signaler_panne_infirmier':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_signaler_panne_infirmier();
         break;
 
     case 'equipement_utiliser':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_utiliser();
         break;
 
     case 'equipement_liberer':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_liberer();
         break;
@@ -254,37 +269,31 @@ switch ($action) {
     // ==================================================
 
     case 'equipements_list_medecin':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipements_list_medecin();
         break;
 
     case 'equipement_reserver_form':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_reserver_form();
         break;
 
     case 'equipement_reserver':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_reserver();
         break;
 
     case 'equipement_signaler_panne':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_signaler_panne();
         break;
 
     case 'equipement_utiliser_medecin':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_utiliser_medecin();
         break;
 
     case 'equipement_liberer_medecin':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipement_liberer_medecin();
         break;
@@ -297,25 +306,21 @@ switch ($action) {
     // ==================================================
 
     case 'examen_form':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/ExamenController.php';
         examen_form();
         break;
 
     case 'examen_create':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/ExamenController.php';
         examen_create_action();
         break;
 
     case 'examen_realiser':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/ExamenController.php';
         examen_realiser_action();
         break;
 
     case 'examen_saisir_resultat':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/ExamenController.php';
         examen_saisir_resultat_action();
         break;
@@ -328,25 +333,21 @@ switch ($action) {
     // ==================================================
 
     case 'transfert_form':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/TransfertController.php';
         transfert_form();
         break;
 
     case 'transfert_create':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/TransfertController.php';
         transfert_create_action();
         break;
 
     case 'transferts_traitement_directeur':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/TransfertController.php';
         transferts_traitement_directeur();
         break;
 
     case 'transfert_update_statut':
-        require_once APP_PATH . '/includes/auth_guard.php';
         require_once APP_PATH . '/controllers/TransfertController.php';
         transfert_update_statut_action();
         break;

@@ -143,3 +143,26 @@ MODIFY etatEquipement ENUM(
   'maintenance',
   'HS'
 ) NOT NULL DEFAULT 'disponible';
+
+
+-- ==================================================
+-- CORRECTION DES CONTRAINTES PATIENT
+-- ==================================================
+-- Objectif :
+-- - Autoriser la répétition de l'email (non unique)
+-- - Garder numeroCarteVitale UNIQUE (important)
+-- - Rendre numeroCarteVitale obligatoire (NOT NULL)
+--
+-- Pourquoi :
+-- - L'email peut être partagé (famille, parent, etc.)
+-- - Le numéro de carte vitale est unique pour chaque patient
+-- ==================================================
+
+-- Supprimer la contrainte UNIQUE sur email
+ALTER TABLE PATIENT DROP INDEX email;
+
+-- Rendre numeroCarteVitale obligatoire
+ALTER TABLE PATIENT MODIFY numeroCarteVitale VARCHAR(50) NOT NULL;
+
+-- Assurer que numeroCarteVitale reste UNIQUE
+ALTER TABLE PATIENT ADD UNIQUE (numeroCarteVitale);

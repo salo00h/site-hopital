@@ -5,19 +5,9 @@ declare(strict_types=1);
 ==================================================
  VIEW : Dossier patient - Médecin
 ==================================================
- Cette vue affiche :
- - les informations du patient
- - les informations du dossier
- - les actions du médecin selon le statut
- - les examens déjà demandés
- - les équipements réservés
- - les demandes de transfert
-
- Remarque :
- - les données sont préparées par le contrôleur
- - cette vue reste simple
- - l'affichage du statut utilise un badge CSS coloré
-==================================================
+ Cette vue affiche les informations du patient,
+ du dossier, les actions du médecin, les examens,
+ les équipements réservés et les transferts.
 */
 
 require_once APP_PATH . '/includes/header.php';
@@ -25,10 +15,8 @@ require_once APP_PATH . '/includes/sidebar.php';
 
 /*
 |--------------------------------------------------------------------------
-| Sécurisation des données
+| Initialisation des données
 |--------------------------------------------------------------------------
-| On initialise les variables pour éviter les warnings
-| si une donnée manque dans le contrôleur.
 */
 $dossier = $dossier ?? [];
 $idDossier = (int)($dossier['idDossier'] ?? 0);
@@ -39,7 +27,7 @@ $transferts = $transferts ?? [];
 
 /*
 |--------------------------------------------------------------------------
-| Fonction simple pour sécuriser l'affichage HTML
+| Sécurisation affichage
 |--------------------------------------------------------------------------
 */
 $h = static function (mixed $v): string {
@@ -48,10 +36,8 @@ $h = static function (mixed $v): string {
 
 /*
 |--------------------------------------------------------------------------
-| Format simple des dates
+| Format date / heure
 |--------------------------------------------------------------------------
-| Si la date est vide on affiche "-"
-| Sinon on affiche au format jour/mois/année heure:minute
 */
 $formatDateTime = static function (?string $v): string {
     if (empty($v)) {
@@ -70,8 +56,6 @@ $formatDateTime = static function (?string $v): string {
 |--------------------------------------------------------------------------
 | Messages flash
 |--------------------------------------------------------------------------
-| On récupère les messages de succès / erreur
-| puis on les supprime de la session après affichage.
 */
 $flashSuccess = '';
 $flashError = '';
@@ -88,21 +72,12 @@ if (!empty($_SESSION['flash_error'])) {
 
 /*
 |--------------------------------------------------------------------------
-| Dernière demande de transfert
+| Dernier transfert
 |--------------------------------------------------------------------------
-| On récupère la dernière demande pour afficher
-| un état complémentaire dans les informations du dossier.
 */
 $dernierTransfert = !empty($transferts) ? $transferts[0] : null;
 $statutDernierTransfert = (string)($dernierTransfert['statutTransfer'] ?? '');
 
-/*
-|--------------------------------------------------------------------------
-| Libellé simple pour l'état du transfert
-|--------------------------------------------------------------------------
-| Ce texte complète le statut médical du dossier
-| sans modifier la logique de la base de données.
-*/
 $libelleTransfert = '-';
 
 if ($statutDernierTransfert !== '') {
@@ -132,13 +107,12 @@ if ($statutDernierTransfert !== '') {
 
 <div class="dossier-grid">
 
-  <!-- Carte : informations patient -->
   <div class="card">
     <h2 class="card-title">Informations patient</h2>
 
     <table class="table">
       <tbody>
-        <tr><th style="width:220px;">Nom</th><td><?= $h($dossier['nom'] ?? '') ?></td></tr>
+        <tr><th>Nom</th><td><?= $h($dossier['nom'] ?? '') ?></td></tr>
         <tr><th>Prénom</th><td><?= $h($dossier['prenom'] ?? '') ?></td></tr>
         <tr><th>ID Patient</th><td><?= $h($dossier['idPatient'] ?? '') ?></td></tr>
         <tr><th>Date naissance</th><td><?= $h($dossier['dateNaissance'] ?? '') ?></td></tr>
@@ -152,16 +126,14 @@ if ($statutDernierTransfert !== '') {
     </table>
   </div>
 
-  <!-- Carte : informations dossier -->
   <div class="card">
     <h2 class="card-title">Informations dossier</h2>
 
     <table class="table">
       <tbody>
-        <tr><th style="width:220px;">Date / heure arrivée</th><td><?= $formatDateTime($dossier['dateAdmission'] ?? null) ?></td></tr>
+        <tr><th>Date / heure arrivée</th><td><?= $formatDateTime($dossier['dateAdmission'] ?? null) ?></td></tr>
         <tr><th>Date sortie</th><td><?= $formatDateTime($dossier['dateSortie'] ?? null) ?></td></tr>
 
-        <!-- Ajout : état de validation de sortie -->
         <tr>
           <th>Sortie validée</th>
           <td><?= ((int)($dossier['sortieValidee'] ?? 0) === 1) ? 'Oui' : 'Non' ?></td>
@@ -170,11 +142,10 @@ if ($statutDernierTransfert !== '') {
         <?php if (!empty($dossier['dateValidationSortie'])): ?>
         <tr>
           <th>Date validation sortie</th>
-          <td><?= htmlspecialchars($dossier['dateValidationSortie'], ENT_QUOTES, 'UTF-8') ?></td>
+          <td><?= $h($dossier['dateValidationSortie']) ?></td>
         </tr>
         <?php endif; ?>
 
-        <!-- Affichage du statut avec un badge coloré -->
         <tr>
           <th>Statut</th>
           <td>
@@ -187,13 +158,9 @@ if ($statutDernierTransfert !== '') {
               <span class="text-muted">+ <?= $h($libelleTransfert) ?></span>
             <?php endif; ?>
 
-            <?php
-            // Afficher une information métier après validation médicale
-            // tant que la sortie finale n'est pas encore confirmée.
-            ?>
             <?php if (
-                (int)($dossier['sortieValidee'] ?? 0) === 1
-                && (int)($dossier['sortieConfirmee'] ?? 0) === 0
+                (int)($dossier['sortieValidee'] ?? 0) === 1 &&
+                (int)($dossier['sortieConfirmee'] ?? 0) === 0
             ): ?>
               <br>
               <span class="text-muted">
@@ -202,13 +169,6 @@ if ($statutDernierTransfert !== '') {
             <?php endif; ?>
 
             <?php
-            /*
-            --------------------------------------------------
-            Le bouton dépend du rôle et du statut du dossier
-            --------------------------------------------------
-            - le médecin peut commencer la consultation
-            - ou analyser les résultats selon l'état actuel
-            */
             $role = $_SESSION['user']['role'] ?? '';
             $statut = $dossier['statut'] ?? '';
 
@@ -218,33 +178,20 @@ if ($statutDernierTransfert !== '') {
             ?>
 
             <?php if ($canStartConsultation): ?>
-              <form
-                method="post"
-                action="index.php?action=dossier_commencer_consultation"
-                class="install-inline-form"
-              >
+              <form method="post" action="index.php?action=dossier_commencer_consultation" class="install-inline-form">
                 <input type="hidden" name="idDossier" value="<?= (int)$dossier['idDossier'] ?>">
 
                 <?php if ($statut === 'attente_resultat'): ?>
-                  <button type="submit" class="btn-install">
-                    ▶ Analyser résultats
-                  </button>
+                  <button type="submit" class="btn-install">Analyser résultats</button>
                 <?php else: ?>
-                  <button type="submit" class="btn-install">
-                    ▶ Commencer Consultation
-                  </button>
+                  <button type="submit" class="btn-install">Commencer consultation</button>
                 <?php endif; ?>
               </form>
             <?php endif; ?>
           </td>
         </tr>
 
-        <!-- Affichage séparé de l'état de transfert -->
-        <tr>
-          <th>Demande de transfert</th>
-          <td><?= $h($libelleTransfert) ?></td>
-        </tr>
-
+        <tr><th>Demande de transfert</th><td><?= $h($libelleTransfert) ?></td></tr>
         <tr><th>Niveau de priorité</th><td><?= $h($dossier['niveau'] ?? '-') ?></td></tr>
         <tr><th>Délai prise en charge</th><td><?= $h($dossier['delaiPriseCharge'] ?? '-') ?></td></tr>
         <tr><th>État entrée</th><td><?= $h($dossier['etat_entree'] ?? '-') ?></td></tr>
@@ -259,9 +206,12 @@ if ($statutDernierTransfert !== '') {
 
     <?php $statutDossier = (string)($dossier['statut'] ?? ''); ?>
 
-    <!-- Actions disponibles pour le médecin -->
     <div class="actions">
-      <a class="btn" href="index.php?action=dossiers_list">← Retour liste</a>
+      <a class="btn" href="index.php?action=dossiers_list">Retour liste</a>
+
+      <a class="btn" href="index.php?action=dossier_edit_medecin_form&id=<?= $idDossier ?>">
+        Modifier dossier
+      </a>
 
       <?php if ($statutDossier === 'consultation' || $statutDossier === 'attente_examen'): ?>
         <a class="btn" href="index.php?action=examen_form&idDossier=<?= $idDossier ?>">
@@ -294,7 +244,6 @@ if ($statutDernierTransfert !== '') {
 
 </div>
 
-<!-- Carte : examens déjà demandés -->
 <div class="card">
   <h2 class="card-title">Examens demandés</h2>
 
@@ -319,7 +268,6 @@ if ($statutDernierTransfert !== '') {
             <td><?= nl2br($h($ex['noteMedecin'] ?? '')) ?></td>
             <td><?= $formatDateTime($ex['dateDemande'] ?? null) ?></td>
             <td><?= $h($ex['statut'] ?? '') ?></td>
-
             <td>
               <?php if (!empty($ex['resultat'])): ?>
                 <?= nl2br($h($ex['resultat'])) ?>
@@ -327,7 +275,6 @@ if ($statutDernierTransfert !== '') {
                 <span class="text-muted">En attente</span>
               <?php endif; ?>
             </td>
-
             <td><?= $formatDateTime($ex['dateResultat'] ?? null) ?></td>
           </tr>
         <?php endforeach; ?>
@@ -336,7 +283,6 @@ if ($statutDernierTransfert !== '') {
   <?php endif; ?>
 </div>
 
-<!-- Carte : équipements réservés pour ce dossier -->
 <div class="card">
   <h2 class="card-title">Équipements réservés</h2>
 
@@ -358,37 +304,22 @@ if ($statutDernierTransfert !== '') {
             <td><?= $h($eq['typeEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['numeroEquipement'] ?? '-') ?></td>
             <td><?= $h($eq['localisation'] ?? '-') ?></td>
-
             <td>
-              <?php
-              // On récupère l'état de l'équipement
-              // pour afficher aussi les boutons d'action.
-              $etatEq = (string)($eq['etatEquipement'] ?? '');
-              ?>
+              <?php $etatEq = (string)($eq['etatEquipement'] ?? ''); ?>
               <?= $h($etatEq !== '' ? $etatEq : '-') ?>
 
               <?php if (($_SESSION['user']['role'] ?? '') === 'MEDECIN'): ?>
                 <?php if ($etatEq === 'reserve'): ?>
-                  <form method="post"
-                        action="index.php?action=equipement_utiliser_medecin"
-                        style="display:inline-block; margin-left:10px;">
+                  <form method="post" action="index.php?action=equipement_utiliser_medecin" style="display:inline-block; margin-left:10px;">
                     <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
                     <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
-                    <button type="submit" class="btn btn-primary">
-                      Utiliser
-                    </button>
+                    <button type="submit" class="btn btn-primary">Utiliser</button>
                   </form>
-
                 <?php elseif ($etatEq === 'occupe'): ?>
-                  <form method="post"
-                        action="index.php?action=equipement_liberer_medecin"
-                        style="display:inline-block; margin-left:10px;"
-                        onsubmit="return confirm('Libérer cet équipement ?');">
+                  <form method="post" action="index.php?action=equipement_liberer_medecin" style="display:inline-block; margin-left:10px;" onsubmit="return confirm('Libérer cet équipement ?');">
                     <input type="hidden" name="idEquipement" value="<?= (int)($eq['idEquipement'] ?? 0) ?>">
                     <input type="hidden" name="idDossier" value="<?= (int)($dossier['idDossier'] ?? 0) ?>">
-                    <button type="submit" class="btn btn-danger">
-                      Libérer
-                    </button>
+                    <button type="submit" class="btn btn-danger">Libérer</button>
                   </form>
                 <?php endif; ?>
               <?php endif; ?>
@@ -400,7 +331,6 @@ if ($statutDernierTransfert !== '') {
   <?php endif; ?>
 </div>
 
-<!-- Carte : demandes de transfert liées au patient -->
 <div class="card">
   <h2 class="card-title">Demandes de transfert</h2>
 

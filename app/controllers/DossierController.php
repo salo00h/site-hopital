@@ -366,7 +366,14 @@ function dossier_create(): void
         'mutuelle'          => getStrParam('mutuelle'),
     ];
 
-    // Vérification champs obligatoires patient
+    // Vérification carte vitale obligatoire
+    if ($patient['numeroCarteVitale'] === '') {
+        $error = "Le numéro de carte vitale est obligatoire.";
+        require __DIR__ . '/../views/dossiers/create.php';
+        return;
+    }
+
+    // Vérification champs obligatoires
     if ($patient['nom'] === '' || $patient['prenom'] === '' || $patient['dateNaissance'] === '') {
         $error = "Nom, prénom et date de naissance sont obligatoires.";
         require __DIR__ . '/../views/dossiers/create.php';
@@ -379,13 +386,14 @@ function dossier_create(): void
     $today     = strtotime(date('Y-m-d'));
 
     if ($timestamp === false || $timestamp < $minDate || $timestamp > $today) {
-        $error = "Date de naissance invalide. Entrez une date réelle entre 1900 et aujourd'hui.";
+        $error = "Date de naissance invalide.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
 
     // ==============================
     // Données dossier
+    // ==============================
     $niveau = getStrParam('niveau', '1');
     $delaiPriseCharge = getDelaiPriseEnChargeByNiveau($niveau);
 
@@ -403,7 +411,8 @@ function dossier_create(): void
         'delaiPriseCharge'  => $delaiPriseCharge,
         'idTransfert'       => getIntParam('idTransfert', 0),
     ];
-    
+
+    // Vérifier hôpital
     if ($dossier['idHopital'] <= 0) {
         $error = "Hôpital manquant.";
         require __DIR__ . '/../views/dossiers/create.php';
@@ -411,7 +420,7 @@ function dossier_create(): void
     }
 
     // ==============================
-    // Création sécurisée
+    // Création
     // ==============================
     try {
         $newDossierId = createPatientAndDossier($patient, $dossier);
@@ -422,14 +431,8 @@ function dossier_create(): void
     } catch (PDOException $e) {
         $msg = $e->getMessage();
 
+        // Gestion erreurs spécifiques base de données
         if (
-            str_contains($msg, 'patient.email') ||
-            str_contains($msg, 'PATIENT.email') ||
-            str_contains($msg, "for key 'email'") ||
-            str_contains($msg, "for key 'patient.email'")
-        ) {
-            $error = "Cette adresse email existe déjà.";
-        } elseif (
             str_contains($msg, 'numeroCarteVitale') ||
             str_contains($msg, 'PATIENT.numeroCarteVitale') ||
             str_contains($msg, "for key 'numeroCarteVitale'") ||
@@ -442,14 +445,14 @@ function dossier_create(): void
         ) {
             $error = "Ce patient possède déjà un dossier.";
         } else {
-            $error = "Erreur lors de la création du patient / dossier.";
+            $error = "Erreur lors de la création.";
         }
 
         require __DIR__ . '/../views/dossiers/create.php';
         return;
 
     } catch (Throwable $e) {
-        $error = "Erreur inattendue lors de la création.";
+        $error = "Erreur inattendue.";
         require __DIR__ . '/../views/dossiers/create.php';
         return;
     }
@@ -692,3 +695,87 @@ function confirmerSortieInfirmier(): void
     exit;
 }
 
+
+
+
+/**
+ * ==================================================
+ * FORMULAIRE MODIFICATION DOSSIER (MEDECIN)
+ * ==================================================
+ * Le médecin peut modifier uniquement
+ * les informations médicales du dossier.
+ */
+function dossier_edit_medecin_form(): void
+{
+    requireRole('MEDECIN');
+
+    $id = getIntParam('id', 0);
+
+    if ($id <= 0) {
+        abort(400, "ID invalide.");
+    }
+
+    $dossier = getDossierById($id);
+
+    if (!$dossier) {
+        abort(404, "Dossier introuvable.");
+    }
+
+    $error = '';
+    require __DIR__ . '/../views/dossiers/edit_medecin.php';
+}
+
+
+/**
+ * ==================================================
+ * UPDATE DOSSIER (MEDECIN)
+ * ==================================================
+ */
+function dossier_update_medecin(): void
+{
+    requireRole('MEDECIN');
+
+    if (!requirePost()) return;
+
+    $idDossier = getIntParam('idDossier', 0);
+
+    if ($idDossier <= 0) {
+        abort(400, "ID invalide.");
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Le médecin modifie uniquement les données médicales
+    |--------------------------------------------------------------------------
+    */
+    $etat_entree = getStrParam('etat_entree');
+    $diagnostic = getStrParam('diagnostic');
+    $traitements = getStrParam('traitements');
+    $historiqueMedical = getStrParam('historiqueMedical');
+    $antecedant = getStrParam('antecedant');
+
+    $dossier = getDossierById($idDossier);
+
+    if (!$dossier) {
+        abort(404, "Dossier introuvable.");
+    }
+
+    updateDossier(
+        $idDossier,
+        $dossier['dateAdmission'],
+        $dossier['dateSortie'],
+        $historiqueMedical,
+        $antecedant,
+        $etat_entree,
+        $diagnostic,
+        $traitements,
+        $dossier['statut'],
+        $dossier['niveau'],
+        $dossier['delaiPriseCharge']
+    );
+
+    $_SESSION['flash_success'] = "Dossier médical mis à jour.";
+
+    header('Location: index.php?action=dossier_detail_medecin&id=' . $idDossier);
+    exit;
+}

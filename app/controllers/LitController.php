@@ -305,9 +305,20 @@ function lit_changer_etat_infirmier(): void
     }
 
     $etatActuel = (string)($lit['etatLit'] ?? '');
-
     $allowed = false;
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gestion des transitions d'état du lit par l'infirmier
+    |--------------------------------------------------------------------------
+    | L'infirmier peut :
+    | - confirmer une réservation : reserve -> occupe
+    | - libérer un lit : occupe -> disponible
+    | - signaler une panne : vers en_panne
+    |
+    | Le changement vers "en_panne" est autorisé car l'infirmier
+    | peut constater un problème sur le lit pendant l'utilisation.
+    */
     if ($etatActuel === 'reserve' && $etat === 'occupe') {
         $allowed = true;
     }
@@ -316,8 +327,12 @@ function lit_changer_etat_infirmier(): void
         $allowed = true;
     }
 
+    if ($etat === 'en_panne') {
+        $allowed = true;
+    }
+
     if (!$allowed) {
-        $_SESSION['flash_error'] = "Transition d’état non autorisée pour l’infirmier.";
+        $_SESSION['flash_error'] = "Transition d’état non autorisée.";
         header('Location: index.php?action=lits_list_infirmier');
         exit;
     }
@@ -325,11 +340,18 @@ function lit_changer_etat_infirmier(): void
     $ok = lit_update_etat($idLit, $etat);
 
     if ($ok) {
-        $_SESSION['flash_success'] = "État du lit mis à jour avec succès.";
+        if ($etat === 'en_panne') {
+            // TODO : envoyer une alerte au service de maintenance
+        }
+
+        $_SESSION['flash_success'] = "État du lit mis à jour.";
     } else {
-        $_SESSION['flash_error'] = "Impossible de modifier l’état du lit.";
+        $_SESSION['flash_error'] = "Erreur lors de la mise à jour.";
     }
 
     header('Location: index.php?action=lits_list_infirmier');
     exit;
 }
+
+
+

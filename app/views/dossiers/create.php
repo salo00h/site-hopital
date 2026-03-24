@@ -82,7 +82,7 @@ $delaiOld = $_POST['delaiPriseCharge'] ?? ($delaisByNiveau[$niveauOld] ?? '0');
 
     <p>
       <label>Numéro carte vitale</label>
-      <input type="text" name="numeroCarteVitale" value="<?= $old('numeroCarteVitale') ?>">
+      <input type="text" name="numeroCarteVitale" value="<?= $old('numeroCarteVitale') ?>" required>
     </p>
 
     <p>
@@ -142,10 +142,12 @@ $delaiOld = $_POST['delaiPriseCharge'] ?? ($delaisByNiveau[$niveauOld] ?? '0');
 
     <p>
       <label>État entrée</label>
-      // Correction (avec assistance IA) : désactivation de l’autocomplétion du navigateur.
-      // Le champ "etat_entree" se remplissait automatiquement avec des valeurs suggérées (ex: "France"),
-      // non issues de la base de données. Après analyse, il s’agissait d’un comportement du navigateur.
-      // Nous avons modifié le nom du champ et utilisé autocomplete="new-password" pour éviter ce problème.
+      <!--
+      Correction (avec assistance IA) : désactivation de l’autocomplétion du navigateur.
+      Le champ "etat_entree" se remplissait automatiquement avec des valeurs suggérées (ex: "France"),
+      non issues de la base de données. Après analyse, il s’agissait d’un comportement du navigateur.
+      Nous avons modifié le nom du champ et utilisé autocomplete="new-password" pour éviter ce problème.
+      -->
       <input type="text" name="etat_entree_patient" value="<?= $old('etat_entree') ?>" autocomplete="new-password" spellcheck="false">
     </p>
 

@@ -40,13 +40,28 @@ $h = static function (mixed $v): string {
           <td><?= $h($etat) ?></td>
           <td>
             <?php if ($etat === 'reserve'): ?>
-              <a class="btn btn-primary" href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=occupe">
+              <a class="btn btn-primary"
+                 href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=occupe">
                 Passer à occupé
               </a>
+
             <?php elseif ($etat === 'occupe'): ?>
-              <a class="btn btn-primary" href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=disponible">
+              <a class="btn btn-primary"
+                 href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=disponible">
                 Libérer le lit
               </a>
+
+              <a class="btn btn-danger"
+                 href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=en_panne">
+                Signaler panne
+              </a>
+
+            <?php elseif ($etat === 'disponible'): ?>
+              <a class="btn btn-danger"
+                 href="index.php?action=lit_changer_etat_infirmier&idLit=<?= (int)$lit['idLit'] ?>&etat=en_panne">
+                Signaler panne
+              </a>
+
             <?php else: ?>
               <button class="btn" disabled>Aucune action</button>
             <?php endif; ?>
