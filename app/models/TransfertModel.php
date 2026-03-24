@@ -6,8 +6,10 @@ declare(strict_types=1);
  MODEL : TransfertModel
 ==================================================
  Rôle :
- - Requêtes SQL liées aux transferts inter-hôpitaux.
- - Aucune logique métier / affichage ici.
+ - Contenir uniquement les requêtes SQL liées aux transferts inter-hôpitaux.
+ - Aucune logique métier ou affichage ici.
+ - Utilisation de PDO avec requêtes préparées.
+ - Respect des noms réels des tables en lowercase.
 ==================================================
 */
 
@@ -16,8 +18,8 @@ require_once APP_PATH . '/config/database.php';
 const TRANSFERT_TABLE = 'transfert_patient';
 
 /**
- * Créer une demande de transfert (Médecin).
- * statutTransfer par défaut: 'demande'
+ * Crée une demande de transfert pour un patient.
+ * Le statut initial est "demande".
  */
 function transfert_create_patient(
     int $idPatient,
@@ -28,24 +30,38 @@ function transfert_create_patient(
     $pdo = db();
 
     $sql = "
-        INSERT INTO " . TRANSFERT_TABLE . " 
-            (idPatient, idHopital, dateCreation, statutTransfer, hopitalDestinataire, serviceDestinataire)
-        VALUES
-            (:idPatient, :idHopital, NOW(), 'demande', :hopitalDestinataire, :serviceDestinataire)
+        INSERT INTO " . TRANSFERT_TABLE . " (
+            idPatient,
+            idHopital,
+            dateCreation,
+            statutTransfer,
+            hopitalDestinataire,
+            serviceDestinataire
+        ) VALUES (
+            :idPatient,
+            :idHopital,
+            NOW(),
+            :statutTransfer,
+            :hopitalDestinataire,
+            :serviceDestinataire
+        )
     ";
 
     $stmt = $pdo->prepare($sql);
 
     return $stmt->execute([
-        ':idPatient'           => $idPatient,
-        ':idHopital'           => $idHopitalSource,
-        ':hopitalDestinataire' => $hopitalDestinataire,
-        ':serviceDestinataire' => $serviceDestinataire,
+        ':idPatient' => $idPatient,
+        ':idHopital' => $idHopitalSource,
+        ':statutTransfer' => 'demande',
+        ':hopitalDestinataire' => trim($hopitalDestinataire),
+        ':serviceDestinataire' => ($serviceDestinataire !== null && trim($serviceDestinataire) !== '')
+            ? trim($serviceDestinataire)
+            : null,
     ]);
 }
 
 /**
- * Récupérer l'historique des transferts d'un patient.
+ * Retourne l'historique des transferts d'un patient.
  */
 function transferts_get_by_patient(int $idPatient): array
 {
@@ -55,18 +71,19 @@ function transferts_get_by_patient(int $idPatient): array
         SELECT *
         FROM " . TRANSFERT_TABLE . "
         WHERE idPatient = :idPatient
-        ORDER BY dateCreation DESC
+        ORDER BY dateCreation DESC, idTransfer DESC
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':idPatient' => $idPatient]);
+    $stmt->execute([
+        ':idPatient' => $idPatient,
+    ]);
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Liste des demandes en attente (Directeur).
- * Ici on prend 'demande' et/ou 'attente_reponse' حسب اختيارك.
+ * Retourne la liste des transferts en attente.
  */
 function transferts_get_pending(): array
 {
@@ -75,16 +92,21 @@ function transferts_get_pending(): array
     $sql = "
         SELECT *
         FROM " . TRANSFERT_TABLE . "
-        WHERE statutTransfer IN ('demande', 'attente_reponse')
-        ORDER BY dateCreation DESC
+        WHERE statutTransfer IN (:statut1, :statut2)
+        ORDER BY dateCreation DESC, idTransfer DESC
     ";
 
-    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':statut1' => 'demande',
+        ':statut2' => 'attente_reponse',
+    ]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Mettre à jour le statut d'un transfert (Directeur).
- * Valeurs possibles: 'accepte' ou 'refuse' (ou 'termine').
+ * Met à jour le statut d'un transfert.
  */
 function transfert_update_statut(int $idTransfer, string $newStatut): bool
 {
@@ -94,19 +116,18 @@ function transfert_update_statut(int $idTransfer, string $newStatut): bool
         UPDATE " . TRANSFERT_TABLE . "
         SET statutTransfer = :statut
         WHERE idTransfer = :id
-        LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
 
     return $stmt->execute([
         ':statut' => $newStatut,
-        ':id'     => $idTransfer,
+        ':id' => $idTransfer,
     ]);
 }
 
 /**
- * (Optionnel) Récupérer un transfert par ID.
+ * Retourne un transfert par son identifiant.
  */
 function transfert_get_by_id(int $idTransfer): ?array
 {
@@ -120,13 +141,18 @@ function transfert_get_by_id(int $idTransfer): ?array
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':id' => $idTransfer]);
+    $stmt->execute([
+        ':id' => $idTransfer,
+    ]);
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
     return $row ?: null;
 }
 
-
+/**
+ * Retourne la liste des hôpitaux.
+ */
 function hopitaux_get_all(): array
 {
     $pdo = db();
@@ -137,51 +163,59 @@ function hopitaux_get_all(): array
         ORDER BY nom ASC
     ";
 
-    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
-
+/**
+ * Compte le nombre de transferts par patient.
+ *
+ * @param int[] $idsPatients
+ * @return array<int,int>
+ */
 function transferts_count_by_patients(array $idsPatients): array
 {
+    $idsPatients = array_values(array_unique(array_map('intval', $idsPatients)));
+    $idsPatients = array_values(array_filter($idsPatients, static fn(int $id): bool => $id > 0));
+
     if (empty($idsPatients)) {
         return [];
     }
 
     $pdo = db();
-
-    $in = implode(',', array_fill(0, count($idsPatients), '?'));
+    $placeholders = implode(',', array_fill(0, count($idsPatients), '?'));
 
     $sql = "
         SELECT idPatient, COUNT(*) AS nb
         FROM transfert_patient
-        WHERE idPatient IN ($in)
+        WHERE idPatient IN ($placeholders)
         GROUP BY idPatient
     ";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($idsPatients);
 
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
     $result = [];
-    foreach ($rows as $r) {
-        $result[(int)$r['idPatient']] = (int)$r['nb'];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $result[(int) $row['idPatient']] = (int) $row['nb'];
     }
 
     return $result;
 }
 
-
-
 /**
  * Retourne le dernier statut de transfert pour chaque patient.
  *
- * Résultat attendu :
+ * Résultat :
  * [
  *   idPatient => 'demande',
- *   idPatient => 'accepte',
- *   ...
+ *   idPatient => 'accepte'
  * ]
+ *
+ * @param int[] $idsPatients
+ * @return array<int,string>
  */
 function transferts_last_statut_by_patients(array $idsPatients): array
 {
@@ -193,7 +227,7 @@ function transferts_last_statut_by_patients(array $idsPatients): array
     }
 
     $pdo = db();
-    $in = implode(',', array_fill(0, count($idsPatients), '?'));
+    $placeholders = implode(',', array_fill(0, count($idsPatients), '?'));
 
     $sql = "
         SELECT t1.idPatient, t1.statutTransfer
@@ -201,7 +235,7 @@ function transferts_last_statut_by_patients(array $idsPatients): array
         INNER JOIN (
             SELECT idPatient, MAX(dateCreation) AS maxDate
             FROM transfert_patient
-            WHERE idPatient IN ($in)
+            WHERE idPatient IN ($placeholders)
             GROUP BY idPatient
         ) t2
             ON t1.idPatient = t2.idPatient
@@ -213,7 +247,7 @@ function transferts_last_statut_by_patients(array $idsPatients): array
 
     $result = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $result[(int)$row['idPatient']] = (string)$row['statutTransfer'];
+        $result[(int) $row['idPatient']] = (string) $row['statutTransfer'];
     }
 
     return $result;
