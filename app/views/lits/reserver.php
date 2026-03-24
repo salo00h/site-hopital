@@ -15,7 +15,7 @@
 <?php else: ?>
   <div class="card">
     <p class="card-subtitle">
-      La réservation permet de bloquer un lit pour un patient.
+      La réservation permet de bloquer un lit pour un patient.<br>
       Le lit sera réellement occupé lorsque l’infirmier confirme l’installation du patient.
     </p>
 
