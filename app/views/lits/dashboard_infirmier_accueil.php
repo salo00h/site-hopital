@@ -53,7 +53,7 @@
       <tr>
         <td><?= (int)$lit['numeroLit'] ?></td>
         <td><?= htmlspecialchars($lit['etatLit']) ?></td>
-        <td>Service #<?= (int)$lit['idService'] ?></td>
+        <td><?= htmlspecialchars($lit['serviceNom'] ?? 'Non défini') ?></td>
       </tr>
     <?php endforeach; ?>
   </table>
