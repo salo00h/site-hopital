@@ -15,9 +15,8 @@
 <?php else: ?>
   <div class="card">
     <p class="card-subtitle">
-      La réservation du lit se fait sur une période donnée.
-      La date de début correspond au moment où le lit est attribué au patient.
-      La date de fin correspond à la fin prévue d’occupation ou à la prochaine réévaluation.
+      La réservation permet de bloquer un lit pour un patient.
+      Le lit sera réellement occupé lorsque l’infirmier confirme l’installation du patient.
     </p>
 
     <form class="form" method="post" action="index.php?action=lit_reserver">
