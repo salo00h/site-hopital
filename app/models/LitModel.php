@@ -134,12 +134,13 @@ function getAvailableLitsByHopital(int $idHopital): array
     $sql = "
         SELECT
             l.idLit,
-            l.numeroLit
+            l.numeroLit,
+            s.nom AS serviceNom
         FROM lit l
         INNER JOIN service s ON s.idService = l.idService
         WHERE s.idHopital = :idHopital
           AND l.etatLit = :etat
-        ORDER BY l.numeroLit ASC
+        ORDER BY s.nom ASC, l.numeroLit ASC
     ";
 
     $stmt = db()->prepare($sql);
@@ -150,7 +151,6 @@ function getAvailableLitsByHopital(int $idHopital): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
-
 /**
  * Réserve un lit pour un dossier dans une transaction.
  */
