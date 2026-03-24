@@ -1,14 +1,6 @@
 <?php
 declare(strict_types=1);
 
-/*
-|--------------------------------------------------------------------------
-| Connexion PDO à la base de données
-|--------------------------------------------------------------------------
-| Ce fichier crée une seule connexion PDO.
-| Il utilise les paramètres définis dans config.php.
-*/
-
 function db(): PDO
 {
     static $pdo = null;
@@ -20,9 +12,9 @@ function db(): PDO
     $cfg = require __DIR__ . '/config.php';
 
     $dsn = 'mysql:host=' . $cfg['host']
-        . ';port=' . $cfg['port']
-        . ';dbname=' . $cfg['dbname']
-        . ';charset=' . $cfg['charset'];
+         . ';port=' . $cfg['port']
+         . ';dbname=' . $cfg['dbname']
+         . ';charset=' . $cfg['charset'];
 
     $pdo = new PDO($dsn, $cfg['user'], $cfg['pass'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
