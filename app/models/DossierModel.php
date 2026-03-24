@@ -2,37 +2,39 @@
 declare(strict_types=1);
 
 /*
-  ==============================
-  DOSSIER MODEL (PDO / MySQL)
-  ==============================
-  Rôle :
-  - Regrouper uniquement l'accès aux données (SQL).
-  - Le contrôleur appelle ces fonctions.
-  - PDO + requêtes préparées (protection contre l'injection SQL).
+|--------------------------------------------------------------------------
+| DOSSIER MODEL
+|--------------------------------------------------------------------------
+| Rôle :
+| - Centraliser les accès aux données du dossier patient.
+| - Utiliser uniquement PDO avec des requêtes préparées.
+| - Respecter les noms réels des tables en lowercase.
+|--------------------------------------------------------------------------
 */
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/PatientModel.php';
 
 /**
- * Convertit une valeur en NULL si vide (string vide).
+ * Transforme une valeur vide en NULL.
  */
 function toNull(mixed $value): mixed
 {
     if ($value === null) {
         return null;
     }
+
     if (is_string($value)) {
         $value = trim($value);
-        return ($value === '') ? null : $value;
+        return $value === '' ? null : $value;
     }
+
     return $value;
 }
 
 /**
- * Retourne la liste des dossiers (avec recherche optionnelle).
- * - Jointure avec PATIENT
- * - Jointure avec GESTION_LIT + LIT pour afficher le numéro du lit si existant
+ * Retourne la liste des dossiers avec recherche optionnelle.
+ * Jointure avec patient et lit si un lit est lié au dossier.
  */
 function getAllDossiers(string $q = ''): array
 {
@@ -52,18 +54,17 @@ function getAllDossiers(string $q = ''): array
             p.prenom,
             p.dateNaissance,
             p.genre
-        FROM DOSSIER_PATIENT d
-        INNER JOIN PATIENT p ON p.idPatient = d.idPatient
-        LEFT JOIN GESTION_LIT gl ON gl.idDossier = d.idDossier
-        LEFT JOIN LIT l ON l.idLit = gl.idLit
-        WHERE 1=1
+        FROM dossier_patient d
+        INNER JOIN patient p ON p.idPatient = d.idPatient
+        LEFT JOIN gestion_lit gl ON gl.idDossier = d.idDossier
+        LEFT JOIN lit l ON l.idLit = gl.idLit
+        WHERE 1 = 1
     ";
 
     $params = [];
 
     if ($q !== '') {
         $sql .= " AND (p.nom LIKE :q OR p.prenom LIKE :q";
-
         $params[':q'] = '%' . $q . '%';
 
         if (ctype_digit($q)) {
@@ -79,14 +80,11 @@ function getAllDossiers(string $q = ''): array
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
 
-    return $stmt->fetchAll() ?: [];
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne un dossier par son id (ou null si introuvable).
- * On récupère aussi :
- * - les infos patient
- * - le lit (si réservé) via GESTION_LIT
+ * Retourne un dossier par son identifiant.
  */
 function getDossierById(int $idDossier): ?array
 {
@@ -105,10 +103,10 @@ function getDossierById(int $idDossier): ?array
             p.genre,
             p.numeroCarteVitale,
             p.mutuelle
-        FROM DOSSIER_PATIENT d
-        INNER JOIN PATIENT p ON p.idPatient = d.idPatient
-        LEFT JOIN GESTION_LIT gl ON gl.idDossier = d.idDossier
-        LEFT JOIN LIT l ON l.idLit = gl.idLit
+        FROM dossier_patient d
+        INNER JOIN patient p ON p.idPatient = d.idPatient
+        LEFT JOIN gestion_lit gl ON gl.idDossier = d.idDossier
+        LEFT JOIN lit l ON l.idLit = gl.idLit
         WHERE d.idDossier = :id
         LIMIT 1
     ";
@@ -116,22 +114,22 @@ function getDossierById(int $idDossier): ?array
     $stmt = db()->prepare($sql);
     $stmt->execute([':id' => $idDossier]);
 
-    $row = $stmt->fetch();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ?: null;
 }
 
 /**
- * Retourne le lit lié au dossier (ou null si aucun).
- * Utilisé pour :
- * - empêcher qu'un dossier réserve plusieurs lits
- * - afficher le numéro du lit dans le détail
+ * Retourne le lit associé à un dossier.
  */
 function getLitForDossier(int $idDossier): ?array
 {
     $sql = "
-        SELECT l.idLit, l.numeroLit, l.etatLit
-        FROM GESTION_LIT gl
-        INNER JOIN LIT l ON l.idLit = gl.idLit
+        SELECT
+            l.idLit,
+            l.numeroLit,
+            l.etatLit
+        FROM gestion_lit gl
+        INNER JOIN lit l ON l.idLit = gl.idLit
         WHERE gl.idDossier = :id
         LIMIT 1
     ";
@@ -139,46 +137,65 @@ function getLitForDossier(int $idDossier): ?array
     $stmt = db()->prepare($sql);
     $stmt->execute([':id' => $idDossier]);
 
-    $row = $stmt->fetch();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ?: null;
 }
 
 /**
- * Crée un dossier (lié à un patient déjà existant) et renvoie l'idDossier.
- * Les champs vides sont enregistrés en NULL.
+ * Crée un dossier lié à un patient existant.
+ * Retourne l'identifiant du nouveau dossier.
  */
 function createDossier(int $idPatient, array $data): int
 {
     $sql = "
-        INSERT INTO DOSSIER_PATIENT
-            (idPatient, idHopital, dateCreation, dateAdmission, dateSortie,
-             historiqueMedical, antecedant, etat_entree, diagnostic, traitements,
-             statut, niveau, delaiPriseCharge, idTransfert)
-        VALUES
-            (:idPatient, :idHopital, :dateCreation, :dateAdmission, :dateSortie,
-             :historiqueMedical, :antecedant, :etat_entree, :diagnostic, :traitements,
-             :statut, :niveau, :delaiPriseCharge, :idTransfert)
+        INSERT INTO dossier_patient (
+            idPatient,
+            idHopital,
+            dateCreation,
+            dateAdmission,
+            dateSortie,
+            historiqueMedical,
+            antecedant,
+            etat_entree,
+            diagnostic,
+            traitements,
+            statut,
+            niveau,
+            delaiPriseCharge,
+            idTransfert
+        ) VALUES (
+            :idPatient,
+            :idHopital,
+            :dateCreation,
+            :dateAdmission,
+            :dateSortie,
+            :historiqueMedical,
+            :antecedant,
+            :etat_entree,
+            :diagnostic,
+            :traitements,
+            :statut,
+            :niveau,
+            :delaiPriseCharge,
+            :idTransfert
+        )
     ";
 
     $stmt = db()->prepare($sql);
     $stmt->execute([
         ':idPatient' => $idPatient,
-        ':idHopital' => $data['idHopital'] ?? null,
+        ':idHopital' => toNull($data['idHopital'] ?? null),
         ':dateCreation' => date('Y-m-d'),
-
         ':dateAdmission' => toNull($data['dateAdmission'] ?? null),
         ':dateSortie' => toNull($data['dateSortie'] ?? null),
-
         ':historiqueMedical' => toNull($data['historiqueMedical'] ?? null),
         ':antecedant' => toNull($data['antecedant'] ?? null),
         ':etat_entree' => toNull($data['etat_entree'] ?? null),
         ':diagnostic' => toNull($data['diagnostic'] ?? null),
         ':traitements' => toNull($data['traitements'] ?? null),
-
-        ':statut' => $data['statut'] ?? 'ouvert',
-        ':niveau' => $data['niveau'] ?? null,
-        ':delaiPriseCharge' => $data['delaiPriseCharge'] ?? null,
-
+        ':statut' => toNull($data['statut'] ?? 'ouvert'),
+        ':niveau' => toNull($data['niveau'] ?? null),
+        ':delaiPriseCharge' => toNull($data['delaiPriseCharge'] ?? null),
         ':idTransfert' => (($data['idTransfert'] ?? 0) != 0) ? (int) $data['idTransfert'] : null,
     ]);
 
@@ -186,8 +203,7 @@ function createDossier(int $idPatient, array $data): int
 }
 
 /**
- * Crée un patient puis un dossier dans une transaction.
- * En cas d'erreur : rollback.
+ * Crée un patient puis son dossier dans une transaction.
  */
 function createPatientAndDossier(array $patient, array $dossier): int
 {
@@ -201,14 +217,15 @@ function createPatientAndDossier(array $patient, array $dossier): int
         $pdo->commit();
         return $idDossier;
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
 
 /**
  * Met à jour un dossier existant.
- * Les champs vides sont enregistrés en NULL.
  */
 function updateDossier(
     int $idDossier,
@@ -224,7 +241,8 @@ function updateDossier(
     string $delai
 ): void {
     $sql = "
-        UPDATE DOSSIER_PATIENT SET
+        UPDATE dossier_patient
+        SET
             dateAdmission = :dateAdmission,
             dateSortie = :dateSortie,
             historiqueMedical = :historiqueMedical,
@@ -256,7 +274,6 @@ function updateDossier(
 
 /**
  * Retourne les dossiers les plus récents.
- * $limit : nombre maximum de résultats (par défaut 5).
  */
 function dossiers_get_recent(int $limit = 5): array
 {
@@ -264,8 +281,8 @@ function dossiers_get_recent(int $limit = 5): array
         SELECT
             d.idDossier,
             CONCAT(p.prenom, ' ', p.nom) AS nomComplet
-        FROM DOSSIER_PATIENT d
-        INNER JOIN PATIENT p ON p.idPatient = d.idPatient
+        FROM dossier_patient d
+        INNER JOIN patient p ON p.idPatient = d.idPatient
         ORDER BY
             (d.dateAdmission IS NULL) ASC,
             d.dateAdmission DESC,
@@ -277,13 +294,14 @@ function dossiers_get_recent(int $limit = 5): array
     $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
     $stmt->execute();
 
-    return $stmt->fetchAll() ?: [];
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne le nombre de demandes d'examens par dossier.
+ * Retourne le nombre d'examens par dossier.
+ *
  * @param int[] $idsDossiers
- * @return array<int,int> [idDossier => nbExamens]
+ * @return array<int,int>
  */
 function examens_count_by_dossiers(array $idsDossiers): array
 {
@@ -306,25 +324,22 @@ function examens_count_by_dossiers(array $idsDossiers): array
     $stmt = db()->prepare($sql);
     $stmt->execute($idsDossiers);
 
-    $map = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $map[(int)$row['idDossier']] = (int)$row['nb'];
+    $result = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $result[(int) $row['idDossier']] = (int) $row['nb'];
     }
-    return $map;
+
+    return $result;
 }
 
 /**
- * Compte les dossiers selon le statut.
- *
- * On accepte plusieurs variantes pour éviter les écarts d'écriture :
- * - consultation / en consultation / en_consultation
- * - attente / en attente / en_attente / ouvert
+ * Compte les patients en consultation.
  */
 function dossiers_count_patients_consultation(): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM DOSSIER_PATIENT
+        FROM dossier_patient
         WHERE LOWER(statut) IN ('consultation', 'en consultation', 'en_consultation')
     ";
 
@@ -332,22 +347,17 @@ function dossiers_count_patients_consultation(): int
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    return (int)($row['nb'] ?? 0);
+    return (int) ($row['nb'] ?? 0);
 }
 
 /**
- * Patients en attente de consultation.
- * On considère ici :
- * - attente
- * - en attente
- * - en_attente
- * - ouvert
+ * Compte les patients en attente.
  */
 function dossiers_count_patients_attente(): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM DOSSIER_PATIENT
+        FROM dossier_patient
         WHERE LOWER(statut) IN ('attente', 'en attente', 'en_attente', 'ouvert')
     ";
 
@@ -355,17 +365,17 @@ function dossiers_count_patients_attente(): int
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    return (int)($row['nb'] ?? 0);
+    return (int) ($row['nb'] ?? 0);
 }
 
 /**
- * Nombre de dossiers par niveau de priorité.
+ * Compte les dossiers par niveau.
  */
 function dossiers_count_by_niveau(int $niveau): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM DOSSIER_PATIENT
+        FROM dossier_patient
         WHERE niveau = :niveau
     ";
 
@@ -374,40 +384,22 @@ function dossiers_count_by_niveau(int $niveau): int
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    return (int)($row['nb'] ?? 0);
+    return (int) ($row['nb'] ?? 0);
 }
 
-
 /**
- * ==================================================
- * MODEL : confirmInstallationPatient
- * ==================================================
- * Rôle :
- * Cette fonction met à jour les données après
- * la confirmation de l’installation du patient.
- *
- * Elle fait deux modifications :
- * 1) le lit passe à l’état "occupe"
- * 2) le dossier passe à l’état "attente_consultation"
- *
- * Note :
- * J’ai légèrement amélioré ce code avec l’aide de l’IA,
- * sans changer sa logique principale.
- * ==================================================
+ * Confirme l'installation du patient :
+ * - le lit passe à l'état occupe
+ * - le dossier passe à l'état attente_consultation
  */
 function confirmInstallationPatient(int $idDossier, int $idLit): void
 {
-    // Connexion à la base de données
     $pdo = db();
-
-    // Début de la transaction :
-    // on veut que les 2 mises à jour réussissent ensemble
     $pdo->beginTransaction();
 
     try {
-        // Mise à jour de l'état du lit
         $stmtLit = $pdo->prepare("
-            UPDATE LIT
+            UPDATE lit
             SET etatLit = :etat
             WHERE idLit = :idLit
         ");
@@ -416,9 +408,8 @@ function confirmInstallationPatient(int $idDossier, int $idLit): void
             ':idLit' => $idLit,
         ]);
 
-        // Mise à jour du statut du dossier patient
         $stmtDossier = $pdo->prepare("
-            UPDATE DOSSIER_PATIENT
+            UPDATE dossier_patient
             SET statut = :statut
             WHERE idDossier = :idDossier
         ");
@@ -427,19 +418,18 @@ function confirmInstallationPatient(int $idDossier, int $idLit): void
             ':idDossier' => $idDossier,
         ]);
 
-        // Validation définitive des deux requêtes
         $pdo->commit();
     } catch (Throwable $e) {
-        // En cas d'erreur :
-        // annuler toutes les modifications pour garder des données cohérentes
-        $pdo->rollBack();
-
-        // Relancer l'erreur pour qu'elle soit gérée plus haut
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
 
-
+/**
+ * Met à jour le statut d'un dossier.
+ */
 function dossier_update_statut(int $idDossier, string $statut): void
 {
     $allowed = [
@@ -453,11 +443,11 @@ function dossier_update_statut(int $idDossier, string $statut): void
     ];
 
     if (!in_array($statut, $allowed, true)) {
-        throw new InvalidArgumentException("Statut dossier invalide.");
+        throw new InvalidArgumentException('Statut dossier invalide.');
     }
 
     $sql = "
-        UPDATE DOSSIER_PATIENT
+        UPDATE dossier_patient
         SET statut = :statut
         WHERE idDossier = :idDossier
     ";
@@ -467,14 +457,10 @@ function dossier_update_statut(int $idDossier, string $statut): void
         ':statut' => $statut,
         ':idDossier' => $idDossier,
     ]);
-
-
 }
 
-
-
 /**
- * Liste des consultations à venir pour le médecin.
+ * Liste des consultations à venir.
  */
 function dossiers_get_consultations(): array
 {
@@ -484,8 +470,8 @@ function dossiers_get_consultations(): array
             p.nom,
             p.prenom,
             d.niveau AS priorite
-        FROM DOSSIER_PATIENT d
-        INNER JOIN PATIENT p ON p.idPatient = d.idPatient
+        FROM dossier_patient d
+        INNER JOIN patient p ON p.idPatient = d.idPatient
         WHERE LOWER(d.statut) IN ('attente_consultation', 'attente consultation')
         ORDER BY d.niveau DESC, d.idDossier DESC
         LIMIT 10
@@ -494,66 +480,66 @@ function dossiers_get_consultations(): array
     $stmt = db()->prepare($sql);
     $stmt->execute();
 
-    return $stmt->fetchAll() ?: [];
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
-
-
-
-
-
-// ==============================
-// VALIDER SORTIE (MEDECIN)
-// ==============================
+/**
+ * Valide la sortie médicale.
+ */
 function validerSortieMedicale(int $idDossier): bool
 {
-    $sql = "UPDATE dossier_patient
-            SET sortieValidee = 1,
-                dateValidationSortie = NOW()
-            WHERE idDossier = :idDossier
-              AND statut <> 'ferme'";
+    $sql = "
+        UPDATE dossier_patient
+        SET
+            sortieValidee = 1,
+            dateValidationSortie = NOW()
+        WHERE idDossier = :idDossier
+          AND statut <> 'ferme'
+    ";
 
     $stmt = db()->prepare($sql);
+
     return $stmt->execute([
-        ':idDossier' => $idDossier
+        ':idDossier' => $idDossier,
     ]);
 }
 
-
-
-// ==============================
-// CONFIRMER SORTIE (INFIRMIER)
-// ==============================
+/**
+ * Confirme la sortie finale du patient.
+ * - ferme le dossier
+ * - libère le lit
+ * - libère les équipements
+ * - conserve les relations pour l'historique
+ */
 function confirmerSortieFinale(int $idDossier): bool
 {
     $pdo = db();
     $pdo->beginTransaction();
 
     try {
-        // Vérifier que la sortie a déjà été validée par le médecin
         $stmt = $pdo->prepare("
             SELECT sortieValidee
             FROM dossier_patient
             WHERE idDossier = :id
+            LIMIT 1
         ");
         $stmt->execute([':id' => $idDossier]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$row || (int)($row['sortieValidee'] ?? 0) !== 1) {
-            throw new Exception("Sortie non validée par le médecin.");
+        if (!$row || (int) ($row['sortieValidee'] ?? 0) !== 1) {
+            throw new Exception('Sortie non validée par le médecin.');
         }
 
-        // 1) Fermer le dossier
         $stmt = $pdo->prepare("
             UPDATE dossier_patient
-            SET statut = 'ferme',
+            SET
+                statut = 'ferme',
                 dateSortie = NOW(),
                 sortieConfirmee = 1
             WHERE idDossier = :idDossier
         ");
         $stmt->execute([':idDossier' => $idDossier]);
 
-        // 2) Récupérer le lit lié au dossier
         $stmt = $pdo->prepare("
             SELECT idLit
             FROM gestion_lit
@@ -563,17 +549,17 @@ function confirmerSortieFinale(int $idDossier): bool
         $stmt->execute([':idDossier' => $idDossier]);
         $lit = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // 3) Libérer le lit
         if ($lit && !empty($lit['idLit'])) {
             $stmt = $pdo->prepare("
                 UPDATE lit
                 SET etatLit = 'disponible'
                 WHERE idLit = :idLit
             ");
-            $stmt->execute([':idLit' => (int)$lit['idLit']]);
+            $stmt->execute([
+                ':idLit' => (int) $lit['idLit'],
+            ]);
         }
 
-        // 4) Récupérer les équipements liés au dossier
         $stmt = $pdo->prepare("
             SELECT idEquipement
             FROM gestion_equipement
@@ -582,7 +568,6 @@ function confirmerSortieFinale(int $idDossier): bool
         $stmt->execute([':idDossier' => $idDossier]);
         $equipements = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // 5) Libérer tous les équipements
         if (!empty($equipements)) {
             $stmtEq = $pdo->prepare("
                 UPDATE equipement
@@ -592,18 +577,13 @@ function confirmerSortieFinale(int $idDossier): bool
 
             foreach ($equipements as $eq) {
                 $stmtEq->execute([
-                    ':idEquipement' => (int)$eq['idEquipement']
+                    ':idEquipement' => (int) $eq['idEquipement'],
                 ]);
             }
         }
 
-        // 6) Conserver les liens pour l'historique
-        // On garde les relations dans gestion_lit et gestion_equipement.
-        // Ainsi, le dossier fermé garde la trace du lit et des équipements utilisés.
-
         $pdo->commit();
         return true;
-
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -611,4 +591,3 @@ function confirmerSortieFinale(int $idDossier): bool
         throw $e;
     }
 }
-
