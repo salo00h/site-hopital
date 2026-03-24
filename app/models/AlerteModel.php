@@ -6,22 +6,21 @@ declare(strict_types=1);
  MODEL : AlerteModel (PDO / MySQL)
 ==================================================
  Rôle :
- - Contenir UNIQUEMENT du SQL lié aux alertes.
- - Fournir les dernières alertes pour le dashboard.
+ - Contenir uniquement les requêtes SQL liées aux alertes.
+ - Fournir les alertes pour le dashboard.
+ - Utiliser PDO avec requêtes préparées.
+ - Respecter les noms réels des tables en lowercase.
 ==================================================
 */
 
 require_once APP_PATH . '/config/database.php';
 
 /**
- * Renvoie les dernières alertes (ex: 5).
+ * Retourne les dernières alertes.
  *
- * IMPORTANT : dans la BD :
- * - table : ALERTE
- * - le texte est dans la colonne : description (pas "message")
- *
- * Pour ne pas casser la vue (qui affiche $a['message']),
- * on renvoie un alias "message" = description.
+ * Remarque :
+ * - Le texte est stocké dans la colonne description.
+ * - On renvoie un alias "message" pour rester compatible avec la vue.
  */
 function alertes_get_last(int $limit = 5): array
 {
@@ -34,58 +33,72 @@ function alertes_get_last(int $limit = 5): array
             a.typeAlerte,
             a.statutAlerte,
             a.description AS message
-        FROM ALERTE a
+        FROM alerte a
         ORDER BY a.dateCreation DESC, a.idAlerte DESC
         LIMIT :lim
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
     $stmt->execute();
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Nombre total d'alertes.
+ * Retourne le nombre total d'alertes.
  */
 function alertes_count_all(): int
 {
     $pdo = db();
 
-    $sql = "SELECT COUNT(*) AS nb FROM ALERTE";
-    $stmt = $pdo->query($sql);
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM alerte
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    return (int)($row['nb'] ?? 0);
-}
 
+    return (int) ($row['nb'] ?? 0);
+}
 
 /**
  * Crée une nouvelle alerte.
  *
- * $type :
+ * Types possibles selon le projet :
  * - saturation
  * - panne_Lit
  * - panne_Equipement
  * - Action
  * - demande_transfert
- *
- * $action :
- * - peut rester null si aucune action technique précise n'est nécessaire
  */
 function alerte_create(string $type, string $description, ?string $action = null): bool
 {
     $sql = "
-        INSERT INTO ALERTE (dateCreation, typeAlerte, action, statutAlerte, description)
-        VALUES (CURDATE(), :type, :action, 'nonLu', :description)
+        INSERT INTO alerte (
+            dateCreation,
+            typeAlerte,
+            action,
+            statutAlerte,
+            description
+        ) VALUES (
+            CURDATE(),
+            :type,
+            :action,
+            :statutAlerte,
+            :description
+        )
     ";
 
     $stmt = db()->prepare($sql);
 
     return $stmt->execute([
-        ':type'        => $type,
-        ':action'      => $action,
+        ':type' => $type,
+        ':action' => $action,
+        ':statutAlerte' => 'nonLu',
         ':description' => $description,
     ]);
 }
