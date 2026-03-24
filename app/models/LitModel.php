@@ -61,50 +61,39 @@ function getInfirmierIdByPersonnel(int $idPersonnel): ?int
  * Retourne les statistiques des lits par état.
  * Si idService > 0, filtre sur ce service.
  */
+/**
+ * Retourne les statistiques globales des lits par état.
+ * Affiche tous les lits sans filtrer par service.
+ */
 function getLitStatsByService(int $idService = 0): array
 {
     $sql = "
         SELECT etatLit, COUNT(*) AS nb
         FROM lit
+        GROUP BY etatLit
+        ORDER BY etatLit ASC
     ";
 
-    $params = [];
-
-    if ($idService > 0) {
-        $sql .= " WHERE idService = :idService";
-        $params[':idService'] = $idService;
-    }
-
-    $sql .= " GROUP BY etatLit ORDER BY etatLit ASC";
-
     $stmt = db()->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne tous les lits d'un service.
- * Si idService = 0, retourne tous les lits.
+ * Retourne tous les lits.
+ * Affiche tous les lits sans filtrer par service.
  */
 function getLitsByService(int $idService = 0): array
 {
     $sql = "
         SELECT idLit, numeroLit, etatLit, idService
         FROM lit
+        ORDER BY idService ASC, numeroLit ASC
     ";
 
-    $params = [];
-
-    if ($idService > 0) {
-        $sql .= " WHERE idService = :idService";
-        $params[':idService'] = $idService;
-    }
-
-    $sql .= " ORDER BY idService ASC, numeroLit ASC";
-
     $stmt = db()->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
