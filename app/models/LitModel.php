@@ -6,14 +6,15 @@ declare(strict_types=1);
   LIT MODEL (PDO / MySQL)
   ==============================
   Rôle :
-  - Accès aux données uniquement (SQL).
-  - PDO + requêtes préparées.
+  - Accès aux données uniquement.
+  - Utilisation de PDO avec requêtes préparées.
+  - Respect des noms réels des tables en lowercase.
 */
 
 require_once __DIR__ . '/../config/database.php';
 
 /**
- * Retourne une valeur entière d'un champ (ou null).
+ * Retourne une valeur entière d'un champ, ou null si aucune ligne.
  */
 function fetchIntOrNull(string $sql, array $params = [], string $field = ''): ?int
 {
@@ -25,114 +26,139 @@ function fetchIntOrNull(string $sql, array $params = [], string $field = ''): ?i
         return null;
     }
 
-    if ($field === '') {
-        // Si on n'a pas précisé de champ, on prend la 1ère colonne
-        $value = array_values($row)[0] ?? null;
-    } else {
-        $value = $row[$field] ?? null;
-    }
+    $value = ($field === '')
+        ? (array_values($row)[0] ?? null)
+        : ($row[$field] ?? null);
 
-    return ($value === null) ? null : (int) $value;
+    return $value === null ? null : (int) $value;
 }
 
 /**
- * Retourne l'idService d'un personnel (ou null si introuvable).
+ * Retourne l'idService d'un personnel.
  */
 function getServiceIdByPersonnel(int $idPersonnel): ?int
 {
     return fetchIntOrNull(
-        "SELECT idService FROM PERSONNEL WHERE idPersonnel = ? LIMIT 1",
+        "SELECT idService FROM personnel WHERE idPersonnel = ? LIMIT 1",
         [$idPersonnel],
         'idService'
     );
 }
 
 /**
- * Retourne l'idInfirmier lié à un personnel (ou null si introuvable).
+ * Retourne l'idInfirmier lié à un personnel.
  */
 function getInfirmierIdByPersonnel(int $idPersonnel): ?int
 {
     return fetchIntOrNull(
-        "SELECT idInfirmier FROM INFIRMIER WHERE idPersonnel = ? LIMIT 1",
+        "SELECT idInfirmier FROM infirmier WHERE idPersonnel = ? LIMIT 1",
         [$idPersonnel],
         'idInfirmier'
     );
 }
 
 /**
- * Statistiques des lits par état (disponible / occupé / reserve / etc.)
- * Exemple résultat : [ ['etatLit' => 'disponible', 'nb' => 5], ... ]
+ * Retourne les statistiques des lits par état.
+ * Si idService > 0, filtre sur ce service.
  */
 function getLitStatsByService(int $idService = 0): array
 {
     $sql = "
         SELECT etatLit, COUNT(*) AS nb
-        FROM LIT
-        GROUP BY etatLit
+        FROM lit
     ";
+
+    $params = [];
+
+    if ($idService > 0) {
+        $sql .= " WHERE idService = :idService";
+        $params[':idService'] = $idService;
+    }
+
+    $sql .= " GROUP BY etatLit ORDER BY etatLit ASC";
+
     $stmt = db()->prepare($sql);
-    $stmt->execute();
+    $stmt->execute($params);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne tous les lits d'un service (pour affichage).
+ * Retourne tous les lits d'un service.
+ * Si idService = 0, retourne tous les lits.
  */
 function getLitsByService(int $idService = 0): array
 {
     $sql = "
         SELECT idLit, numeroLit, etatLit, idService
-        FROM LIT
-        ORDER BY idService, numeroLit
+        FROM lit
     ";
+
+    $params = [];
+
+    if ($idService > 0) {
+        $sql .= " WHERE idService = :idService";
+        $params[':idService'] = $idService;
+    }
+
+    $sql .= " ORDER BY idService ASC, numeroLit ASC";
+
     $stmt = db()->prepare($sql);
-    $stmt->execute();
+    $stmt->execute($params);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne uniquement les lits disponibles d'un service.
+ * Retourne les lits disponibles d'un service.
  */
 function getAvailableLits(int $idService): array
 {
     $sql = "
         SELECT idLit, numeroLit
-        FROM LIT
-        WHERE idService = ?
-          AND etatLit = 'disponible'
-        ORDER BY numeroLit
+        FROM lit
+        WHERE idService = :idService
+          AND etatLit = :etat
+        ORDER BY numeroLit ASC
     ";
+
     $stmt = db()->prepare($sql);
-    $stmt->execute([$idService]);
+    $stmt->execute([
+        ':idService' => $idService,
+        ':etat' => 'disponible',
+    ]);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
 /**
- * Retourne les lits disponibles d'un hôpital (tous services confondus).
- * On passe par la table SERVICE pour filtrer par idHopital.
- *
+ * Retourne les lits disponibles d'un hôpital.
+ * Filtrage via la table service.
  */
 function getAvailableLitsByHopital(int $idHopital): array
 {
     $sql = "
-        SELECT l.idLit, l.numeroLit
-        FROM LIT l
-        JOIN SERVICE s ON s.idService = l.idService
-        WHERE s.idHopital = ?
-          AND l.etatLit = 'disponible'
-        ORDER BY l.numeroLit
+        SELECT
+            l.idLit,
+            l.numeroLit
+        FROM lit l
+        INNER JOIN service s ON s.idService = l.idService
+        WHERE s.idHopital = :idHopital
+          AND l.etatLit = :etat
+        ORDER BY l.numeroLit ASC
     ";
 
     $stmt = db()->prepare($sql);
-    $stmt->execute([$idHopital]);
+    $stmt->execute([
+        ':idHopital' => $idHopital,
+        ':etat' => 'disponible',
+    ]);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
+
 /**
- * Réserve un lit pour un dossier (transaction).
+ * Réserve un lit pour un dossier dans une transaction.
  */
 function reserveLitForDossier(
     int $idLit,
@@ -145,57 +171,97 @@ function reserveLitForDossier(
     $pdo->beginTransaction();
 
     try {
-        // 1) Vérifier le lit (et verrouiller la ligne pour éviter une double réservation)
-        $sqlCheckLit = "SELECT etatLit FROM LIT WHERE idLit = ? LIMIT 1 FOR UPDATE";
+        $sqlCheckLit = "
+            SELECT etatLit
+            FROM lit
+            WHERE idLit = :idLit
+            LIMIT 1
+            FOR UPDATE
+        ";
         $check = $pdo->prepare($sqlCheckLit);
-        $check->execute([$idLit]);
+        $check->execute([
+            ':idLit' => $idLit,
+        ]);
 
         $row = $check->fetch(PDO::FETCH_ASSOC);
+
         if (!$row) {
-            throw new Exception("Lit introuvable.");
+            throw new Exception('Lit introuvable.');
         }
+
         if (($row['etatLit'] ?? '') !== 'disponible') {
             throw new Exception("Ce lit n'est pas disponible.");
         }
 
-        // 2) Vérifier que le dossier n'a pas déjà un lit
-        $sqlCheckDossier = "SELECT 1 FROM GESTION_LIT WHERE idDossier = ? LIMIT 1";
+        $sqlCheckDossier = "
+            SELECT 1
+            FROM gestion_lit
+            WHERE idDossier = :idDossier
+            LIMIT 1
+        ";
         $checkDossier = $pdo->prepare($sqlCheckDossier);
-        $checkDossier->execute([$idDossier]);
+        $checkDossier->execute([
+            ':idDossier' => $idDossier,
+        ]);
 
         if ($checkDossier->fetchColumn() !== false) {
-            throw new Exception("Ce dossier a déjà un lit réservé.");
+            throw new Exception('Ce dossier a déjà un lit réservé.');
         }
 
-        // 3) Insérer la réservation
         $sqlInsert = "
-            INSERT INTO RESERVATION_LIT (idLit, idInfirmier, dateDebutReservation, dateFinReservation)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO reservation_lit (
+                idLit,
+                idInfirmier,
+                dateDebutReservation,
+                dateFinReservation
+            ) VALUES (
+                :idLit,
+                :idInfirmier,
+                :dateDebut,
+                :dateFin
+            )
         ";
         $ins = $pdo->prepare($sqlInsert);
-        $ins->execute([$idLit, $idInfirmier, $dateDebut, $dateFin]);
+        $ins->execute([
+            ':idLit' => $idLit,
+            ':idInfirmier' => $idInfirmier,
+            ':dateDebut' => $dateDebut,
+            ':dateFin' => $dateFin,
+        ]);
 
-        // 4) Mettre à jour l'état du lit
-        $sqlUpdateLit = "UPDATE LIT SET etatLit = 'reserve' WHERE idLit = ?";
+        $sqlUpdateLit = "
+            UPDATE lit
+            SET etatLit = :etat
+            WHERE idLit = :idLit
+        ";
         $upd = $pdo->prepare($sqlUpdateLit);
-        $upd->execute([$idLit]);
+        $upd->execute([
+            ':etat' => 'reserve',
+            ':idLit' => $idLit,
+        ]);
 
-        // 5) Lier le lit au dossier
-        $sqlLink = "INSERT INTO GESTION_LIT (idDossier, idLit) VALUES (?, ?)";
+        $sqlLink = "
+            INSERT INTO gestion_lit (idDossier, idLit)
+            VALUES (:idDossier, :idLit)
+        ";
         $link = $pdo->prepare($sqlLink);
-        $link->execute([$idDossier, $idLit]);
+        $link->execute([
+            ':idDossier' => $idDossier,
+            ':idLit' => $idLit,
+        ]);
 
         $pdo->commit();
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
 
 /**
  * Retourne des statistiques globales sur les lits.
- * Pour le médecin :
- * - "Occupés" = lits non disponibles = occupe + reserve
+ * Les lits occupés incluent : occupe + reserve.
  */
 function lits_get_stats(): array
 {
@@ -203,7 +269,7 @@ function lits_get_stats(): array
         SELECT
             SUM(CASE WHEN etatLit = 'disponible' THEN 1 ELSE 0 END) AS disponibles,
             SUM(CASE WHEN etatLit IN ('occupe', 'reserve') THEN 1 ELSE 0 END) AS occupes
-        FROM LIT
+        FROM lit
     ";
 
     $stmt = db()->prepare($sql);
@@ -212,8 +278,8 @@ function lits_get_stats(): array
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
     return [
-        'disponibles' => (int)($row['disponibles'] ?? 0),
-        'occupes'     => (int)($row['occupes'] ?? 0),
+        'disponibles' => (int) ($row['disponibles'] ?? 0),
+        'occupes' => (int) ($row['occupes'] ?? 0),
     ];
 }
 
@@ -224,11 +290,11 @@ function lits_count_disponibles(): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM LIT
-        WHERE etatLit = 'disponible'
+        FROM lit
+        WHERE etatLit = :etat
     ";
 
-    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+    return (int) (fetchIntOrNull($sql, [':etat' => 'disponible'], 'nb') ?? 0);
 }
 
 /**
@@ -238,30 +304,29 @@ function lits_count_reserves(): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM LIT
-        WHERE etatLit = 'reserve'
+        FROM lit
+        WHERE etatLit = :etat
     ";
 
-    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+    return (int) (fetchIntOrNull($sql, [':etat' => 'reserve'], 'nb') ?? 0);
 }
 
-
 /**
- * Nombre de lits occupés + réservés.
+ * Nombre de lits occupés ou réservés.
  */
 function lits_count_occupes_et_reserves(): int
 {
     $sql = "
         SELECT COUNT(*) AS nb
-        FROM LIT
+        FROM lit
         WHERE etatLit IN ('occupe', 'reserve')
     ";
 
-    return (int)(fetchIntOrNull($sql, [], 'nb') ?? 0);
+    return (int) (fetchIntOrNull($sql, [], 'nb') ?? 0);
 }
 
 /**
- * Taux d’occupation global.
+ * Taux d'occupation global des lits.
  */
 function lits_get_taux_occupation_global(): int
 {
@@ -269,31 +334,35 @@ function lits_get_taux_occupation_global(): int
         SELECT
             COUNT(*) AS total,
             SUM(CASE WHEN etatLit IN ('occupe', 'reserve') THEN 1 ELSE 0 END) AS nbOcc
-        FROM LIT
+        FROM lit
     ";
 
     $stmt = db()->prepare($sql);
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    $total = (int)($row['total'] ?? 0);
-    $nbOcc = (int)($row['nbOcc'] ?? 0);
+    $total = (int) ($row['total'] ?? 0);
+    $nbOcc = (int) ($row['nbOcc'] ?? 0);
 
     if ($total <= 0) {
         return 0;
     }
 
-    return (int)round(($nbOcc / $total) * 100);
+    return (int) round(($nbOcc / $total) * 100);
 }
 
 /**
- * Liste globale des lits.
+ * Retourne la liste globale des lits.
  */
 function lits_get_all(): array
 {
     $sql = "
-        SELECT idLit, numeroLit, etatLit, idService
-        FROM LIT
+        SELECT
+            idLit,
+            numeroLit,
+            etatLit,
+            idService
+        FROM lit
         ORDER BY numeroLit ASC
     ";
 
@@ -304,40 +373,46 @@ function lits_get_all(): array
 }
 
 /**
- * Retourne un lit par son ID.
+ * Retourne un lit par son identifiant.
  */
 function lit_get_by_id(int $idLit): ?array
 {
     $sql = "
-        SELECT idLit, numeroLit, etatLit, idService
-        FROM LIT
-        WHERE idLit = ?
+        SELECT
+            idLit,
+            numeroLit,
+            etatLit,
+            idService
+        FROM lit
+        WHERE idLit = :idLit
         LIMIT 1
     ";
 
     $stmt = db()->prepare($sql);
-    $stmt->execute([$idLit]);
+    $stmt->execute([
+        ':idLit' => $idLit,
+    ]);
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
     return $row ?: null;
 }
 
 /**
- * Mise à jour de l’état d’un lit.
+ * Met à jour l'état d'un lit.
  */
 function lit_update_etat(int $idLit, string $etatLit): bool
 {
     $sql = "
-        UPDATE LIT
+        UPDATE lit
         SET etatLit = :etat
         WHERE idLit = :id
-        LIMIT 1
     ";
 
     $stmt = db()->prepare($sql);
 
     return $stmt->execute([
         ':etat' => $etatLit,
-        ':id'   => $idLit,
+        ':id' => $idLit,
     ]);
 }
