@@ -87,9 +87,14 @@ function getLitStatsByService(int $idService = 0): array
 function getLitsByService(int $idService = 0): array
 {
     $sql = "
-        SELECT idLit, numeroLit, etatLit, idService
-        FROM lit
-        ORDER BY idService ASC, numeroLit ASC
+        SELECT 
+            l.idLit,
+            l.numeroLit,
+            l.etatLit,
+            s.libelle AS serviceNom
+        FROM lit l
+        LEFT JOIN service s ON s.idService = l.idService
+        ORDER BY s.libelle ASC, l.numeroLit ASC
     ";
 
     $stmt = db()->prepare($sql);
