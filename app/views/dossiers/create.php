@@ -191,8 +191,8 @@ document.addEventListener('DOMContentLoaded', function () {
     '1': '0',
     '2': '10',
     '3': '30',
-    '4': '60',
-    '5': '120'
+    '4': 'NonImmediat',
+    '5': 'NonImmediat'
   };
 
   function updateDelai() {
