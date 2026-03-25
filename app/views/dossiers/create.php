@@ -135,7 +135,7 @@ $delaiOld = $_POST['delaiPriseCharge'] ?? ($delaisByNiveau[$niveauOld] ?? '0');
         readonly
       >
       <small>
-        Niveau 1 = immédiat, Niveau 2 = 10 min, Niveau 3 = 30 min, Niveau 4 = 60 min, Niveau 5 = 120 min
+        Niveau 1 = immédiat, Niveau 2 = 10 min, Niveau 3 = 30 min, Niveau 4 et 5 = non immédiat
       </small>
       <input type="hidden" name="delaiPriseCharge" id="delaiPriseCharge" value="<?= htmlspecialchars($delaiOld, ENT_QUOTES, 'UTF-8') ?>">
     </p>
