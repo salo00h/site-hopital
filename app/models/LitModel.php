@@ -77,15 +77,22 @@ function getLitStatsByService(int $idService = 0): array
 }
 
 /**
- * Retourne tous les lits d'un service (pour affichage).
+ * Retourne tous les lits avec le nom du service (pour affichage).
  */
 function getLitsByService(int $idService = 0): array
 {
     $sql = "
-        SELECT idLit, numeroLit, etatLit, idService
-        FROM LIT
-        ORDER BY idService, numeroLit
+        SELECT
+            l.idLit,
+            l.numeroLit,
+            l.etatLit,
+            l.idService,
+            s.nom AS serviceNom
+        FROM LIT l
+        LEFT JOIN SERVICE s ON s.idService = l.idService
+        ORDER BY s.nom ASC, l.numeroLit ASC
     ";
+
     $stmt = db()->prepare($sql);
     $stmt->execute();
 
@@ -118,12 +125,15 @@ function getAvailableLits(int $idService): array
 function getAvailableLitsByHopital(int $idHopital): array
 {
     $sql = "
-        SELECT l.idLit, l.numeroLit
+        SELECT 
+            l.idLit, 
+            l.numeroLit,
+            s.nom AS serviceNom
         FROM LIT l
         JOIN SERVICE s ON s.idService = l.idService
         WHERE s.idHopital = ?
           AND l.etatLit = 'disponible'
-        ORDER BY l.numeroLit
+        ORDER BY s.nom ASC, l.numeroLit ASC
     ";
 
     $stmt = db()->prepare($sql);

@@ -3,38 +3,69 @@
 <head>
     <meta charset="utf-8">
     <title>Connexion - SI Hôpital</title>
+
+    <!-- On lie le fichier CSS principal -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
-<div class="login-page">
-    <div class="login-card">
-        <h1 class="login-title">Connexion</h1>
+<!-- Conteneur principal pour centrer toute la page -->
+<div class="login-wrapper">
 
-        <?php if (!empty($_SESSION['flash_error'])): ?>
-            <div class="alert alert-danger">
-                <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?>
+    <!-- Boîte principale de la page de connexion -->
+    <div class="login-container">
+
+        <!-- Barre supérieure -->
+        <div class="login-topbar">
+            <div class="login-brand">
+
+                <!-- Logo du système -->
+                <img src="assets/images/logo.png" alt="Logo HRMS" class="login-logo">
+
+                <!-- Nom du système -->
+                <span>HRMS – Connexion au système</span>
             </div>
-            <?php unset($_SESSION['flash_error']); ?>
-        <?php endif; ?>
+        </div>
 
-        <?php if (!empty($error)) : ?>
-            <div class="alert alert-danger">
-                <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
-            </div>
-        <?php endif; ?>
+        <!-- Corps de la page -->
+        <div class="login-body">
 
-        <form method="post" action="index.php?action=login">
-            <label>Nom d'utilisateur</label>
-            <input type="text" name="username" required>
+            <!-- Titre du formulaire -->
+            <h2 class="login-subtitle">Portail de connexion</h2>
 
-            <label>Mot de passe</label>
-            <input type="password" name="password" required>
+            <!-- Message d'erreur stocké dans la session -->
+            <?php if (!empty($_SESSION['flash_error'])): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?>
+                </div>
+                <?php unset($_SESSION['flash_error']); ?>
+            <?php endif; ?>
 
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Se connecter</button>
-            </div>
-        </form>
+            <!-- Message d'erreur simple -->
+            <?php if (!empty($error)) : ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Formulaire de connexion -->
+            <form method="post" action="index.php?action=login">
+
+                <!-- Champ identifiant -->
+                <label>Identifiant</label>
+                <input type="text" name="username" placeholder="Votre identifiant" required>
+
+                <!-- Champ mot de passe -->
+                <label>Mot de passe</label>
+                <input type="password" name="password" placeholder="Votre mot de passe" required>
+
+                <!-- Bouton de connexion -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Me connecter</button>
+                </div>
+
+            </form>
+        </div>
     </div>
 </div>
 
