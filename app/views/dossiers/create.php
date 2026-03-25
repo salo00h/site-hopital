@@ -148,7 +148,7 @@ $delaiOld = $_POST['delaiPriseCharge'] ?? ($delaisByNiveau[$niveauOld] ?? '0');
       non issues de la base de données. Après analyse, il s’agissait d’un comportement du navigateur.
       Nous avons modifié le nom du champ et utilisé autocomplete="new-password" pour éviter ce problème.
       -->
-      <input type="text" name="etat_entree_patient" value="<?= $old('etat_entree') ?>" autocomplete="new-password" spellcheck="false">
+      <input type="text" 'etat_entree' => getStrParam('etat_entree_patient'), value="<?= $old('etat_entree') ?>" autocomplete="new-password" spellcheck="false">
     </p>
 
     <p>
