@@ -14,8 +14,8 @@ $delaisByNiveau = [
     '1' => '0',
     '2' => '10',
     '3' => '30',
-    '4' => '60',
-    '5' => '120',
+    '4' => 'NonImmediat',
+    '5' => 'NonImmediat',
 ];
 
 $delaiOld = $_POST['delaiPriseCharge'] ?? ($delaisByNiveau[$niveauOld] ?? '0');
