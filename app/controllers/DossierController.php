@@ -402,7 +402,7 @@ function dossier_create(): void
         'dateSortie'        => normalizeDateTime(getStrParam('dateSortie')),
         'historiqueMedical' => getStrParam('historiqueMedical'),
         'antecedant'        => getStrParam('antecedant'),
-        'etat_entree'       => getStrParam('etat_entree'),
+        'etat_entree'       => getStrParam('etat_entree_patient'),
         'diagnostic'        => getStrParam('diagnostic'),
         'traitements'       => getStrParam('traitements'),
         'statut'            => 'ouvert',
