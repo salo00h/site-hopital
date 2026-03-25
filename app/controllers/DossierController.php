@@ -86,8 +86,7 @@ function getDelaiPriseEnChargeByNiveau(string $niveau): string
         '1' => '0',
         '2' => '10',
         '3' => '30',
-        '4' => '60',
-        '5' => '120',
+        '4', '5' => 'NonImmediat',
         default => '0',
     };
 }
