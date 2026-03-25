@@ -4,42 +4,40 @@
     <meta charset="utf-8">
     <title>Connexion - SI Hôpital</title>
 
-    <!-- On lie le fichier CSS pour le style -->
+    <!-- On lie le fichier CSS principal -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
-<!-- Conteneur principal pour centrer la page -->
+<!-- Conteneur principal pour centrer toute la page -->
 <div class="login-wrapper">
 
-    <!-- Boîte qui contient toute la page de connexion -->
+    <!-- Boîte principale de la page de connexion -->
     <div class="login-container">
 
-        <!-- Barre bleue en haut -->
+        <!-- Barre supérieure -->
         <div class="login-topbar">
             <div class="login-brand">
 
-                <!-- Ici on peut mettre le logo plus tard -->
-                <span class="logo-placeholder">HRMS</span>
+                <!-- Logo du système -->
+                <img src="assets/images/logo.png" alt="Logo HRMS" class="login-logo">
 
                 <!-- Nom du système -->
                 <span>HRMS – Connexion au système</span>
             </div>
         </div>
 
-        <!-- Partie du formulaire -->
+        <!-- Corps de la page -->
         <div class="login-body">
 
-            <!-- Titre de la page -->
+            <!-- Titre du formulaire -->
             <h2 class="login-subtitle">Portail de connexion</h2>
 
-            <!-- Message d'erreur venant de la session -->
+            <!-- Message d'erreur stocké dans la session -->
             <?php if (!empty($_SESSION['flash_error'])): ?>
                 <div class="alert alert-danger">
                     <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?>
                 </div>
-
-                <!-- On supprime le message après affichage -->
                 <?php unset($_SESSION['flash_error']); ?>
             <?php endif; ?>
 
@@ -53,21 +51,20 @@
             <!-- Formulaire de connexion -->
             <form method="post" action="index.php?action=login">
 
-                <!-- Champ pour le nom utilisateur -->
+                <!-- Champ identifiant -->
                 <label>Identifiant</label>
                 <input type="text" name="username" placeholder="Votre identifiant" required>
 
-                <!-- Champ pour le mot de passe -->
+                <!-- Champ mot de passe -->
                 <label>Mot de passe</label>
                 <input type="password" name="password" placeholder="Votre mot de passe" required>
 
-                <!-- Bouton pour envoyer le formulaire -->
+                <!-- Bouton de connexion -->
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Me connecter</button>
                 </div>
 
             </form>
-
         </div>
     </div>
 </div>
