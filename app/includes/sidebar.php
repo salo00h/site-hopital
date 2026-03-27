@@ -32,7 +32,6 @@ $role = $_SESSION['user']['role'] ?? '';
 
       <?php if ($role === 'MEDECIN'): ?>
         <li><a href="index.php?action=dossiers_list">Consulter dossier</a></li>
-
         <li>
           <a href="index.php?action=equipements_list_medecin">
             Tableau de bord des équipements
@@ -42,12 +41,12 @@ $role = $_SESSION['user']['role'] ?? '';
 
       <?php if ($role === 'DIRECTEUR'): ?>
         <li><a href="index.php?action=transferts_historique">Transferts - Historique</a></li>
-        <li><a href="index.php?action=transferts_traitement">Traiter transferts</a></li>
+        <li><a href="index.php?action=transferts_traitement_directeur">Traiter transferts</a></li>
       <?php endif; ?>
 
       <?php if ($role === 'TECHNICIEN'): ?>
-        <li><a href="index.php?action=lits_list">Gestion lits</a></li>
-        <li><a href="index.php?action=equipements_list">Gestion équipements</a></li>
+        <li><a href="index.php?action=lits_technicien">Gestion lits</a></li>
+        <li><a href="index.php?action=equipements_technicien">Gestion équipements</a></li>
       <?php endif; ?>
     </ul>
   </div>
