@@ -2,21 +2,30 @@
 declare(strict_types=1);
 
 /*
-==================================================
- CONTROLLER : TransfertController
-==================================================
- Rôle :
- - Médecin : demander un transfert
- - Directeur : valider / refuser
- - Historique : consulter les transferts d'un patient
-==================================================
+|--------------------------------------------------------------------------
+| CONTROLLER : TransfertController
+|--------------------------------------------------------------------------
+| Rôle du contrôleur :
+| - Médecin : demander un transfert ;
+| - Directeur : valider ou refuser une demande ;
+| - Historique : consulter les transferts enregistrés.
+|
+| Organisation du fichier :
+| 1. Actions médecin
+| 2. Actions directeur
+|--------------------------------------------------------------------------
 */
 
 require_once APP_PATH . '/models/TransfertModel.php';
 require_once APP_PATH . '/models/AlerteModel.php';
 
+
+/* ======================================================================
+   ACTIONS MÉDECIN
+   ====================================================================== */
+
 /**
- * Formulaire (Médecin) : demander un transfert
+ * Afficher le formulaire de demande de transfert.
  */
 function transfert_form(): void
 {
@@ -29,7 +38,11 @@ function transfert_form(): void
         exit('ID dossier invalide.');
     }
 
-    // Charger le dossier pour récupérer le patient
+    /*
+    |--------------------------------------------------------------------------
+    | Chargement du dossier pour retrouver le patient lié
+    |--------------------------------------------------------------------------
+    */
     require_once APP_PATH . '/models/DossierModel.php';
 
     $dossier = getDossierById($idDossier);
@@ -46,15 +59,22 @@ function transfert_form(): void
         exit('Patient introuvable dans le dossier.');
     }
 
-    // Historique des transferts du patient
+    /*
+    |--------------------------------------------------------------------------
+    | Données utiles pour le formulaire
+    |--------------------------------------------------------------------------
+    | - historique complet des transferts du patient ;
+    | - liste des hôpitaux possibles.
+    |--------------------------------------------------------------------------
+    */
     $historique = transferts_get_by_patient($idPatient);
-    $hopitaux   = hopitaux_get_all();
+    $hopitaux = hopitaux_get_all();
 
     require APP_PATH . '/views/transferts/form.php';
 }
 
 /**
- * Action (Médecin) : créer la demande
+ * Traiter la création d'une demande de transfert.
  */
 function transfert_create_action(): void
 {
@@ -65,18 +85,46 @@ function transfert_create_action(): void
         exit('Méthode non autorisée.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Lecture des paramètres du formulaire
+    |--------------------------------------------------------------------------
+    */
+    $typeTransfert = trim((string)($_POST['typeTransfert'] ?? ''));
     $idDossier = (int)($_POST['idDossier'] ?? 0);
     $hopitalDestinataire = trim((string)($_POST['hopitalDestinataire'] ?? ''));
     $serviceDestinataire = trim((string)($_POST['serviceDestinataire'] ?? ''));
 
-    if ($idDossier <= 0 || $hopitalDestinataire === '') {
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification des champs obligatoires
+    |--------------------------------------------------------------------------
+    */
+    if ($idDossier <= 0 || $typeTransfert === '') {
         $_SESSION['flash_error'] = "Veuillez remplir les champs obligatoires.";
         header('Location: index.php?action=transfert_form&idDossier=' . $idDossier);
         exit;
     }
 
-    // Charger le dossier pour trouver le patient
+    if ($typeTransfert === 'hopital' && $hopitalDestinataire === '') {
+        $_SESSION['flash_error'] = "Veuillez choisir l'hôpital destinataire.";
+        header('Location: index.php?action=transfert_form&idDossier=' . $idDossier);
+        exit;
+    }
+
+    if ($typeTransfert === 'service' && $serviceDestinataire === '') {
+        $_SESSION['flash_error'] = "Veuillez saisir le service destinataire.";
+        header('Location: index.php?action=transfert_form&idDossier=' . $idDossier);
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Récupération du dossier et du patient concerné
+    |--------------------------------------------------------------------------
+    */
     require_once APP_PATH . '/models/DossierModel.php';
+
     $dossier = getDossierById($idDossier);
 
     if (!$dossier) {
@@ -93,36 +141,126 @@ function transfert_create_action(): void
         exit;
     }
 
-    // Hôpital source : souvent depuis la session
+    /*
+    |--------------------------------------------------------------------------
+    | Hôpital source lié à l'utilisateur connecté
+    |--------------------------------------------------------------------------
+    */
     $user = $_SESSION['user'] ?? [];
     $idHopitalSource = (int)($user['idHopital'] ?? 0);
 
-    // Valeur par défaut si absente
+    /*
+    |--------------------------------------------------------------------------
+    | Valeur de secours si l'hôpital source n'est pas défini
+    |--------------------------------------------------------------------------
+    */
     if ($idHopitalSource <= 0) {
         $idHopitalSource = 1;
     }
 
-    // Création de la demande de transfert dans l'historique
+    /*
+    |--------------------------------------------------------------------------
+    | Distinction transfert interne / externe
+    |--------------------------------------------------------------------------
+    | Avant :
+    | le dossier passait toujours au statut général "transfert".
+    |
+    | Problème :
+    | l'application ne montrait pas clairement s'il s'agissait
+    | d'un transfert interne ou externe.
+    |
+    | Maintenant :
+    | - transfert interne  -> statut dossier = transfert_interne
+    | - transfert externe  -> statut dossier = transfert_externe
+    |
+    | En plus, la table transfert_patient enregistre :
+    | - le type de transfert ;
+    | - la destination ;
+    | - la validation du directeur pour l'externe.
+    |--------------------------------------------------------------------------
+    */
+    if ($typeTransfert === 'service') {
+        $statutTransfer = 'interne';
+        $typeTransfer = 'interne';
+        $validationDirecteur = null;
+        $statutDossier = 'transfert_interne';
+
+        /*
+        ----------------------------------------------------------------------
+        | Pour un transfert interne, on garde une indication simple
+        | dans la colonne hôpital afin que l'affichage reste clair.
+        ----------------------------------------------------------------------
+        */
+        $hopitalDestinataire = 'Interne';
+    } else {
+        $statutTransfer = 'demande';
+        $typeTransfer = 'externe';
+        $validationDirecteur = 'en_attente';
+        $statutDossier = 'transfert_externe';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Création du transfert en base
+    |--------------------------------------------------------------------------
+    */
     $okTransfert = transfert_create_patient(
         $idPatient,
         $idHopitalSource,
         $hopitalDestinataire,
-        ($serviceDestinataire !== '' ? $serviceDestinataire : null)
+        ($serviceDestinataire !== '' ? $serviceDestinataire : null),
+        $statutTransfer,
+        $typeTransfer,
+        $validationDirecteur
     );
 
-    // Création d'une alerte pour informer le directeur
-    $description = "Demande de transfert envoyée pour le patient ID "
-        . $idPatient
-        . " vers "
-        . $hopitalDestinataire
-        . ($serviceDestinataire !== '' ? " / service : " . $serviceDestinataire : "")
-        . ".";
+    /*
+    |--------------------------------------------------------------------------
+    | Mise à jour du statut du dossier si le transfert est bien créé
+    |--------------------------------------------------------------------------
+    */
+    if ($okTransfert) {
+        dossier_update_statut($idDossier, $statutDossier);
+    }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Construction du texte d'alerte selon le type de transfert
+    |--------------------------------------------------------------------------
+    */
+    if ($typeTransfert === 'service') {
+        $description = "Transfert interne du patient ID "
+            . $idPatient
+            . ($serviceDestinataire !== '' ? " vers le service : " . $serviceDestinataire : "")
+            . ".";
+    } else {
+        $description = "Demande de transfert externe pour le patient ID "
+            . $idPatient
+            . " vers "
+            . $hopitalDestinataire
+            . ($serviceDestinataire !== '' ? " / service : " . $serviceDestinataire : "")
+            . ".";
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Création d'une alerte liée à la demande de transfert
+    |--------------------------------------------------------------------------
+    */
     $okAlerte = alerte_create('demande_transfert', $description, null);
 
-    // Message final
+    /*
+    |--------------------------------------------------------------------------
+    | Messages utilisateur
+    |--------------------------------------------------------------------------
+    */
     if ($okTransfert && $okAlerte) {
-        $_SESSION['flash_success'] = "Demande de transfert bien envoyée au directeur.";
+        if ($typeTransfert === 'service') {
+            $_SESSION['flash_success'] = "Transfert interne enregistré avec succès.";
+        } else {
+            $_SESSION['flash_success'] = "Demande de transfert externe envoyée au directeur.";
+        }
+
         $_SESSION['flash_error'] = "";
     } else {
         $_SESSION['flash_success'] = "";
@@ -133,8 +271,13 @@ function transfert_create_action(): void
     exit;
 }
 
+
+/* ======================================================================
+   ACTIONS DIRECTEUR
+   ====================================================================== */
+
 /**
- * Directeur : liste des demandes
+ * Afficher la liste des demandes de transfert à traiter par le directeur.
  */
 function transferts_traitement_directeur(): void
 {
@@ -146,7 +289,11 @@ function transferts_traitement_directeur(): void
 }
 
 /**
- * Directeur : valider ou refuser
+ * Mettre à jour le statut d'un transfert côté directeur.
+ *
+ * Le directeur peut :
+ * - accepter ;
+ * - refuser.
  */
 function transfert_update_statut_action(): void
 {
@@ -157,15 +304,30 @@ function transfert_update_statut_action(): void
         exit('Méthode non autorisée.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Lecture des paramètres
+    |--------------------------------------------------------------------------
+    */
     $idTransfer = (int)($_POST['idTransfer'] ?? 0);
-    $statut     = trim((string)($_POST['statut'] ?? ''));
+    $statut = trim((string)($_POST['statut'] ?? ''));
 
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification des paramètres
+    |--------------------------------------------------------------------------
+    */
     if ($idTransfer <= 0 || ($statut !== 'accepte' && $statut !== 'refuse')) {
         $_SESSION['flash_error'] = "Paramètres invalides.";
         header('Location: index.php?action=transferts_traitement_directeur');
         exit;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mise à jour du statut dans le modèle
+    |--------------------------------------------------------------------------
+    */
     $ok = transfert_update_statut($idTransfer, $statut);
 
     if ($ok) {
@@ -176,4 +338,16 @@ function transfert_update_statut_action(): void
 
     header('Location: index.php?action=transferts_traitement_directeur');
     exit;
+}
+
+/**
+ * Afficher l'historique complet des transferts côté directeur.
+ */
+function transferts_historique(): void
+{
+    requireRole('DIRECTEUR');
+
+    $transferts = transferts_get_recent(50);
+
+    require APP_PATH . '/views/transferts/historique.php';
 }
