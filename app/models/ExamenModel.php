@@ -2,33 +2,49 @@
 declare(strict_types=1);
 
 /*
-==================================================
-  MODEL : ExamenModel
-==================================================
-  Rôle :
-  - Accès aux données de la table examen.
-  - Création, lecture et mise à jour des demandes d'examen.
-  - Utilisation de PDO avec requêtes préparées.
-  - Respect des noms réels des tables en lowercase.
-==================================================
+|--------------------------------------------------------------------------
+| MODEL : ExamenModel
+|--------------------------------------------------------------------------
+| Rôle :
+| - Gérer l'accès aux données de la table examen
+| - Créer et lire les demandes d'examen
+| - Mettre à jour le statut et les résultats
+| - Utiliser PDO et les requêtes préparées
+| - Respecter les noms réels des tables en lowercase
+|--------------------------------------------------------------------------
 */
 
 require_once __DIR__ . '/../config/database.php';
 
+/* =========================================================================
+ * CRÉATION DES DEMANDES D’EXAMEN
+ * ========================================================================= */
+
 /**
  * Crée une demande d'examen.
+ *
+ * Remarques :
+ * - idMedecin peut être null si non fourni
+ * - le statut initial est EN_ATTENTE
  */
-function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin = null): bool
-{
+function examen_create(
+    int $idDossier,
+    string $typeExamen,
+    ?string $noteMedecin = null,
+    ?int $idMedecin = null
+): bool {
     $sql = "
         INSERT INTO examen (
             idDossier,
+            idMedecin,
             typeExamen,
             noteMedecin,
             dateDemande,
             statut
-        ) VALUES (
+        )
+        VALUES (
             :idDossier,
+            :idMedecin,
             :typeExamen,
             :noteMedecin,
             NOW(),
@@ -39,16 +55,23 @@ function examen_create(int $idDossier, string $typeExamen, ?string $noteMedecin 
     $stmt = db()->prepare($sql);
 
     return $stmt->execute([
-        ':idDossier' => $idDossier,
-        ':typeExamen' => $typeExamen,
+        ':idDossier'   => $idDossier,
+        ':idMedecin'   => $idMedecin,
+        ':typeExamen'  => $typeExamen,
         ':noteMedecin' => $noteMedecin,
-        ':statut' => 'EN_ATTENTE',
+        ':statut'      => 'EN_ATTENTE',
     ]);
 }
 
+/* =========================================================================
+ * LECTURE DES EXAMENS
+ * ========================================================================= */
+
 /**
- * Liste les examens d'un dossier.
- * Les plus récents apparaissent en premier.
+ * Retourne la liste des examens d'un dossier.
+ *
+ * Tri :
+ * - le plus récent en premier
  */
 function examens_get_by_dossier(int $idDossier): array
 {
@@ -56,6 +79,7 @@ function examens_get_by_dossier(int $idDossier): array
         SELECT
             idExamen,
             idDossier,
+            idMedecin,
             typeExamen,
             noteMedecin,
             resultat,
@@ -76,7 +100,7 @@ function examens_get_by_dossier(int $idDossier): array
 }
 
 /**
- * Récupère une demande d'examen par son identifiant.
+ * Retourne une demande d'examen par son identifiant.
  */
 function examen_get_by_id(int $idExamen): ?array
 {
@@ -84,6 +108,7 @@ function examen_get_by_id(int $idExamen): ?array
         SELECT
             idExamen,
             idDossier,
+            idMedecin,
             typeExamen,
             noteMedecin,
             resultat,
@@ -106,33 +131,10 @@ function examen_get_by_id(int $idExamen): ?array
 }
 
 /**
- * Met à jour le statut d'un examen.
- */
-function examen_update_statut(int $idExamen, string $statut): bool
-{
-    $allowed = ['EN_ATTENTE', 'EN_COURS', 'TERMINE', 'ANNULE'];
-
-    if (!in_array($statut, $allowed, true)) {
-        return false;
-    }
-
-    $sql = "
-        UPDATE examen
-        SET statut = :statut
-        WHERE idExamen = :idExamen
-    ";
-
-    $stmt = db()->prepare($sql);
-
-    return $stmt->execute([
-        ':statut' => $statut,
-        ':idExamen' => $idExamen,
-    ]);
-}
-
-/**
- * Retourne les demandes récentes.
- * Possibilité de filtrer par statut.
+ * Retourne la liste des demandes récentes.
+ *
+ * Option :
+ * - filtrage possible par statut
  */
 function examens_get_recent(int $limit = 10, ?string $statut = null): array
 {
@@ -143,6 +145,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
             SELECT
                 idExamen,
                 idDossier,
+                idMedecin,
                 typeExamen,
                 noteMedecin,
                 dateDemande,
@@ -165,6 +168,7 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
         SELECT
             idExamen,
             idDossier,
+            idMedecin,
             typeExamen,
             noteMedecin,
             dateDemande,
@@ -182,7 +186,11 @@ function examens_get_recent(int $limit = 10, ?string $statut = null): array
 }
 
 /**
- * Retourne les examens récents avec les informations du patient.
+ * Retourne la liste récente des examens avec les informations patient.
+ *
+ * Utilisation :
+ * - affichage dashboard
+ * - affichage nom/prénom + type + statut
  */
 function examens_get_recent_with_patient(int $limit = 10): array
 {
@@ -214,67 +222,7 @@ function examens_get_recent_with_patient(int $limit = 10): array
 }
 
 /**
- * Retourne la liste des types d'examen.
- */
-function examens_types_all(): array
-{
-    $sql = "
-        SELECT idType, libelle
-        FROM type_examen
-        ORDER BY libelle ASC
-    ";
-
-    $stmt = db()->prepare($sql);
-    $stmt->execute();
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-}
-/**
- * Enregistre le résultat d'un examen
- * et passe automatiquement son statut à TERMINE.
- */
-function examen_save_resultat(int $idExamen, string $resultat): bool
-{
-    $sql = "
-        UPDATE examen
-        SET
-            resultat = :resultat,
-            dateResultat = NOW(),
-            statut = :statut
-        WHERE idExamen = :idExamen
-    ";
-
-    $stmt = db()->prepare($sql);
-
-    return $stmt->execute([
-        ':resultat' => $resultat,
-        ':statut' => 'TERMINE',
-        ':idExamen' => $idExamen,
-    ]);
-}
-
-/**
- * Compte le nombre d'examens en attente.
- */
-function examens_count_en_attente(): int
-{
-    $sql = "
-        SELECT COUNT(*) AS nb
-        FROM examen
-        WHERE statut = :statut
-    ";
-
-    $stmt = db()->prepare($sql);
-    $stmt->execute([
-        ':statut' => 'EN_ATTENTE',
-    ]);
-
-    return (int) $stmt->fetchColumn();
-}
-
-/**
- * Retourne la liste des examens en attente
- * avec les informations du patient.
+ * Retourne la liste des examens en attente avec les informations patient.
  */
 function examens_get_en_attente_with_patient(int $limit = 10): array
 {
@@ -302,4 +250,107 @@ function examens_get_en_attente_with_patient(int $limit = 10): array
     $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Retourne la liste des types d'examens.
+ *
+ * Utilisation :
+ * - formulaire de création de demande
+ */
+function examens_types_all(): array
+{
+    $sql = "
+        SELECT idType, libelle
+        FROM type_examen
+        ORDER BY libelle ASC
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/* =========================================================================
+ * MISE À JOUR DES EXAMENS
+ * ========================================================================= */
+
+/**
+ * Met à jour le statut d'un examen.
+ *
+ * Statuts autorisés :
+ * - EN_ATTENTE
+ * - EN_COURS
+ * - TERMINE
+ * - ANNULE
+ */
+function examen_update_statut(int $idExamen, string $statut): bool
+{
+    $allowed = ['EN_ATTENTE', 'EN_COURS', 'TERMINE', 'ANNULE'];
+
+    if (!in_array($statut, $allowed, true)) {
+        return false;
+    }
+
+    $sql = "
+        UPDATE examen
+        SET statut = :statut
+        WHERE idExamen = :idExamen
+        LIMIT 1
+    ";
+
+    $stmt = db()->prepare($sql);
+
+    return $stmt->execute([
+        ':statut'   => $statut,
+        ':idExamen' => $idExamen,
+    ]);
+}
+
+/**
+ * Enregistre le résultat d'un examen et le marque comme terminé.
+ */
+function examen_save_resultat(int $idExamen, string $resultat): bool
+{
+    $sql = "
+        UPDATE examen
+        SET
+            resultat = :resultat,
+            dateResultat = NOW(),
+            statut = :statut
+        WHERE idExamen = :idExamen
+        LIMIT 1
+    ";
+
+    $stmt = db()->prepare($sql);
+
+    return $stmt->execute([
+        ':resultat' => $resultat,
+        ':statut'   => 'TERMINE',
+        ':idExamen' => $idExamen,
+    ]);
+}
+
+/* =========================================================================
+ * STATISTIQUES
+ * ========================================================================= */
+
+/**
+ * Retourne le nombre d'examens en attente.
+ */
+function examens_count_en_attente(): int
+{
+    $sql = "
+        SELECT COUNT(*) AS nb
+        FROM examen
+        WHERE statut = :statut
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute([
+        ':statut' => 'EN_ATTENTE',
+    ]);
+
+    return (int) $stmt->fetchColumn();
 }
