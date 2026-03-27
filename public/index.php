@@ -1,108 +1,151 @@
 <?php
-declare(strict_types=1);
-// Active le typage strict pour éviter les erreurs de type.
 
-// ===============================
-// FRONT CONTROLLER (MVC)
-// ===============================
-// Ce fichier est le point d’entrée unique de l’application.
-// Toutes les requêtes passent par ici.
-// Il choisit quel contrôleur exécuter selon le paramètre ?action=
+declare(strict_types=1);
+
+/*
+|--------------------------------------------------------------------------
+| FRONT CONTROLLER DE L'APPLICATION
+|--------------------------------------------------------------------------
+| Ce fichier constitue le point d'entrée principal du projet.
+| Toutes les requêtes HTTP transitent par ce front controller.
+| Il centralise le routage et redirige les demandes vers les contrôleurs
+| appropriés selon la valeur du paramètre "action".
+|
+| Ce fichier est sensible car il représente le point d'accès central
+| de l'application. Il doit donc rester lisible, stable, cohérent et
+| facile à maintenir.
+|
+| Les actions sont organisées par domaine fonctionnel afin de rendre
+| la structure du switch plus claire et plus simple à parcourir.
+|--------------------------------------------------------------------------
+*/
 
 session_start();
-// Démarre la session.
-// Nécessaire pour l’authentification et les messages flash.
-// Doit être appelé avant tout affichage HTML.
 
-// ===============================
-// CONSTANTES DE CHEMINS
-// ===============================
-// Ces constantes permettent d’éviter les chemins relatifs compliqués.
-define('BASE_PATH', dirname(__DIR__));     // Racine du projet
-define('APP_PATH', BASE_PATH . '/app');    // Dossier principal de l’application
+/*
+|--------------------------------------------------------------------------
+| CONSTANTES DE CHEMINS
+|--------------------------------------------------------------------------
+| Ces constantes permettent de centraliser les chemins principaux
+| du projet et d'éviter la multiplication de chemins relatifs.
+|--------------------------------------------------------------------------
+*/
+define('BASE_PATH', dirname(__DIR__));
+define('APP_PATH', BASE_PATH . '/app');
 
-// ===============================
-// CONFIGURATION GLOBALE
-// ===============================
-// Charge la connexion à la base de données et la fonction db().
+/*
+|--------------------------------------------------------------------------
+| CONFIGURATION GLOBALE
+|--------------------------------------------------------------------------
+| Chargement de la configuration principale, notamment la connexion
+| à la base de données et la fonction d'accès PDO.
+|--------------------------------------------------------------------------
+*/
 require_once APP_PATH . '/config/database.php';
 
-// ===============================
-// ACTION DEMANDÉE
-// ===============================
-// Exemple : index.php?action=login
-// Si aucune action n’est donnée, on affiche le formulaire de connexion.
+/*
+|--------------------------------------------------------------------------
+| ACTION DEMANDÉE
+|--------------------------------------------------------------------------
+| Si aucune action n'est fournie, le formulaire de connexion est
+| affiché par défaut.
+|--------------------------------------------------------------------------
+*/
 $action = $_GET['action'] ?? 'login_form';
 
-// ===============================
-// SÉCURITÉ GLOBALE
-// ===============================
-// On centralise ici la vérification de connexion
-// pour éviter de la répéter dans chaque case.
+/*
+|--------------------------------------------------------------------------
+| GARDE D'AUTHENTIFICATION
+|--------------------------------------------------------------------------
+| Le contrôle d'accès est centralisé ici afin d'éviter de répéter
+| la même vérification dans chaque branche du routage.
+|--------------------------------------------------------------------------
+*/
 require_once APP_PATH . '/includes/auth_guard.php';
 
-/**
- * Liste des actions publiques (sans login)
- */
+/*
+|--------------------------------------------------------------------------
+| ACTIONS PUBLIQUES
+|--------------------------------------------------------------------------
+| Ces actions restent accessibles sans authentification préalable.
+|--------------------------------------------------------------------------
+*/
 $publicActions = [
     'login_form',
     'login',
-    'logout'
+    'logout',
 ];
 
-/**
- * Si l'action n'est pas publique, l'utilisateur doit être connecté.
- */
+/*
+|--------------------------------------------------------------------------
+| PROTECTION DES ACTIONS PRIVÉES
+|--------------------------------------------------------------------------
+| Toute action qui ne figure pas dans la liste publique nécessite
+| une session utilisateur active.
+|--------------------------------------------------------------------------
+*/
 if (!in_array($action, $publicActions, true)) {
     if (empty($_SESSION['user'])) {
-        $_SESSION['flash_error'] = "Veuillez vous connecter.";
+        $_SESSION['flash_error'] = 'Veuillez vous connecter.';
         header('Location: index.php?action=login_form');
         exit;
     }
 }
 
+/*
+|--------------------------------------------------------------------------
+| ROUTAGE PRINCIPAL
+|--------------------------------------------------------------------------
+| Le switch centralise la répartition des requêtes vers les différents
+| contrôleurs. Sa structure doit rester claire, ordonnée et stable.
+|--------------------------------------------------------------------------
+*/
 switch ($action) {
-
-    // ==================================================
-    // 1) AUTHENTIFICATION
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 1. AUTHENTIFICATION
+    |--------------------------------------------------------------------------
+    | Gestion de l'accès à l'application :
+    | - affichage du formulaire
+    | - connexion
+    | - déconnexion
+    |--------------------------------------------------------------------------
+    */
     case 'login_form':
-        // Affiche le formulaire de connexion.
         require_once APP_PATH . '/controllers/AuthController.php';
         loginForm();
         break;
 
     case 'login':
-        // Traite la soumission du formulaire de connexion.
         require_once APP_PATH . '/controllers/AuthController.php';
         login();
         break;
 
     case 'logout':
-        // Déconnecte l’utilisateur et détruit la session.
         require_once APP_PATH . '/controllers/AuthController.php';
         logout();
         break;
 
-
-    // ==================================================
-    // 2) TABLEAU DE BORD
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 2. TABLEAU DE BORD
+    |--------------------------------------------------------------------------
+    | Point d'accès principal après authentification.
+    |--------------------------------------------------------------------------
+    */
     case 'dashboard':
-        // Page protégée : utilisateur connecté obligatoire.
         require_once APP_PATH . '/controllers/DashboardController.php';
         dashboard();
         break;
 
-
-    // ==================================================
-    // 3) DOSSIERS PATIENTS
-    // Workflow :
-    // liste -> détail -> création / modification
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 3. DOSSIERS PATIENTS
+    |--------------------------------------------------------------------------
+    | Domaine fonctionnel lié à la gestion administrative et médicale
+    | des dossiers patients.
+    |--------------------------------------------------------------------------
+    */
     case 'dossiers_list':
         require_once APP_PATH . '/controllers/DossierController.php';
         dossiers_list();
@@ -142,28 +185,26 @@ switch ($action) {
         require_once APP_PATH . '/controllers/DossierController.php';
         confirmerSortieInfirmier();
         break;
-   
 
-    // ==================================================
-    // 4) GESTION DES LITS
-    // Workflow :
-    // dashboard lits -> réservation -> gestion infirmier
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 4. GESTION DES LITS
+    |--------------------------------------------------------------------------
+    | Actions liées à l'affichage, la réservation et la gestion métier
+    | des lits.
+    |--------------------------------------------------------------------------
+    */
     case 'lits_dashboard':
-        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lits_dashboard();
         break;
 
     case 'lit_reserver_form':
-        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lit_reserver_form();
         break;
 
     case 'lit_reserver':
-        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/LitController.php';
         lit_reserver();
         break;
@@ -178,33 +219,31 @@ switch ($action) {
         lit_changer_etat_infirmier();
         break;
 
-
-    // ==================================================
-    // 5) DOSSIER INFIRMIER - ACTIONS MÉTIER
-    // Workflow :
-    // confirmer installation -> faire avancer le dossier
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 5. DOSSIER INFIRMIER
+    |--------------------------------------------------------------------------
+    | Actions métier spécifiques au suivi infirmier.
+    |--------------------------------------------------------------------------
+    */
     case 'confirmer_installation_patient':
-        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/DossierController.php';
         confirmer_installation_patient();
         break;
 
-
-    // ==================================================
-    // 6) DOSSIER MÉDECIN - ACTIONS MÉTIER
-    // Workflow :
-    // commencer consultation -> analyser résultats -> suite du parcours
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 6. DOSSIER MÉDECIN
+    |--------------------------------------------------------------------------
+    | Actions métier spécifiques au parcours médical et à la consultation.
+    |--------------------------------------------------------------------------
+    */
     case 'dossier_detail_medecin':
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_detail_medecin();
         break;
 
     case 'dossier_commencer_consultation':
-        // Accès réservé aux utilisateurs connectés.
         require_once APP_PATH . '/controllers/DossierController.php';
         dossier_commencer_consultation();
         break;
@@ -215,22 +254,22 @@ switch ($action) {
         break;
 
     case 'dossier_edit_medecin_form':
-     require_once APP_PATH . '/controllers/DossierController.php';
-     dossier_edit_medecin_form();
-     break;
+        require_once APP_PATH . '/controllers/DossierController.php';
+        dossier_edit_medecin_form();
+        break;
 
     case 'dossier_update_medecin':
-     require_once APP_PATH . '/controllers/DossierController.php';
-     dossier_update_medecin();
-     break;
+        require_once APP_PATH . '/controllers/DossierController.php';
+        dossier_update_medecin();
+        break;
 
-
-    // ==================================================
-    // 7) ÉQUIPEMENTS - INFIRMIER
-    // Workflow :
-    // liste -> réservation -> signalement -> changement d’état
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 7. ÉQUIPEMENTS - INFIRMIER
+    |--------------------------------------------------------------------------
+    | Actions liées aux équipements manipulés dans le cadre infirmier.
+    |--------------------------------------------------------------------------
+    */
     case 'equipements_list_infirmier':
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipements_list_infirmier();
@@ -261,13 +300,13 @@ switch ($action) {
         equipement_liberer();
         break;
 
-
-    // ==================================================
-    // 8) ÉQUIPEMENTS - MÉDECIN
-    // Workflow :
-    // liste -> formulaire -> réservation -> signalement -> utiliser -> libérer
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 8. ÉQUIPEMENTS - MÉDECIN
+    |--------------------------------------------------------------------------
+    | Actions liées aux équipements dans le contexte médical.
+    |--------------------------------------------------------------------------
+    */
     case 'equipements_list_medecin':
         require_once APP_PATH . '/controllers/EquipementController.php';
         equipements_list_medecin();
@@ -298,13 +337,14 @@ switch ($action) {
         equipement_liberer_medecin();
         break;
 
-
-    // ==================================================
-    // 9) EXAMENS
-    // Workflow :
-    // demande -> création -> réalisation -> saisie du résultat
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 9. EXAMENS
+    |--------------------------------------------------------------------------
+    | Routage des actions liées aux demandes, réalisations et résultats
+    | d'examens médicaux.
+    |--------------------------------------------------------------------------
+    */
     case 'examen_form':
         require_once APP_PATH . '/controllers/ExamenController.php';
         examen_form();
@@ -325,13 +365,13 @@ switch ($action) {
         examen_saisir_resultat_action();
         break;
 
-
-    // ==================================================
-    // 10) TRANSFERTS
-    // Workflow :
-    // formulaire -> création -> traitement par le directeur -> mise à jour
-    // ==================================================
-
+    /*
+    |--------------------------------------------------------------------------
+    | 10. TRANSFERTS
+    |--------------------------------------------------------------------------
+    | Gestion du cycle de vie des demandes de transfert.
+    |--------------------------------------------------------------------------
+    */
     case 'transfert_form':
         require_once APP_PATH . '/controllers/TransfertController.php';
         transfert_form();
@@ -352,14 +392,63 @@ switch ($action) {
         transfert_update_statut_action();
         break;
 
+    case 'transferts_historique':
+        require_once APP_PATH . '/controllers/TransfertController.php';
+        transferts_historique();
+        break;
 
-    // ==================================================
-    // 11) ACTION INCONNUE
-    // ==================================================
+    /*
+    |--------------------------------------------------------------------------
+    | 11. TECHNICIEN
+    |--------------------------------------------------------------------------
+    | Domaine regroupant les actions de maintenance et de consultation
+    | technique sur les lits et les équipements.
+    |--------------------------------------------------------------------------
+    */
+    case 'tech_dashboard':
+        require_once APP_PATH . '/controllers/DashboardController.php';
+        technicien_dashboard();
+        break;
 
+    case 'lits_technicien':
+        require_once APP_PATH . '/controllers/LitController.php';
+        lits_liste_technicien();
+        break;
+
+    case 'lit_detail_technicien':
+        require_once APP_PATH . '/controllers/LitController.php';
+        lit_detail_technicien();
+        break;
+
+    case 'lit_changer_etat':
+        require_once APP_PATH . '/controllers/LitController.php';
+        lit_changer_etat();
+        break;
+
+    case 'equipements_technicien':
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipements_liste_technicien();
+        break;
+
+    case 'equipement_detail_technicien':
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_detail_technicien();
+        break;
+
+    case 'equipement_changer_etat':
+        require_once APP_PATH . '/controllers/EquipementController.php';
+        equipement_changer_etat();
+        break;
+
+    /*
+    |--------------------------------------------------------------------------
+    | 12. ACTION INCONNUE
+    |--------------------------------------------------------------------------
+    | Toute action non reconnue retourne une erreur 404.
+    |--------------------------------------------------------------------------
+    */
     default:
-        // Si l’action demandée n’existe pas, on renvoie une erreur 404.
         http_response_code(404);
-        echo "404 - Page introuvable";
+        echo '404 - Page introuvable';
         break;
 }
