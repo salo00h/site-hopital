@@ -1,23 +1,31 @@
 <?php
 /*
-  ==============================
-  VIEW : Accueil Médecin
-  ==============================
-  Dashboard simple du médecin.
-
-  Cette vue affiche :
-  - la recherche rapide d'un dossier patient
-  - les derniers dossiers
-  - les consultations à venir
-  - les dossiers en attente d'examen
-  - les équipements disponibles
-  - les lits disponibles / occupés
-  - les alertes récentes
-  - le taux d'occupation
-
-  Remarque :
-  - les données doivent être préparées par le contrôleur
-  - cette vue reste simple et sans logique métier complexe
+|--------------------------------------------------------------------------
+| VIEW : Accueil Médecin
+|--------------------------------------------------------------------------
+| Dashboard simple du médecin.
+|
+| Cette vue affiche :
+| - la recherche rapide d'un dossier patient
+| - les derniers dossiers
+| - les consultations à venir
+| - les dossiers en attente d'examen
+| - les équipements disponibles
+| - les lits disponibles / occupés
+| - les alertes récentes
+| - le taux d'occupation
+|
+| Remarque :
+| - les données doivent être préparées par le contrôleur
+| - cette vue reste simple et sans logique métier complexe
+|
+| Organisation de la vue :
+| - ce fichier contient uniquement l'affichage
+| - ce fichier doit rester simple et lisible
+| - pas de logique métier ici
+| - pas de CSS ici
+| - uniquement affichage et structure claire
+|--------------------------------------------------------------------------
 */
 
 require __DIR__ . '/../../includes/header.php';
@@ -25,10 +33,13 @@ require __DIR__ . '/../../includes/sidebar.php';
 
 /*
 |--------------------------------------------------------------------------
-| Sécurisation des variables
+| Sécurisation des variables d'affichage
 |--------------------------------------------------------------------------
 | On initialise des valeurs par défaut pour éviter les warnings
 | si une donnée manque dans le contrôleur.
+| Cette étape reste acceptable dans une vue car elle protège seulement
+| l'affichage sans ajouter de logique métier.
+|--------------------------------------------------------------------------
 */
 $dossiersRecent           = $dossiersRecent ?? [];
 $consultations            = $consultations ?? [];
@@ -45,6 +56,9 @@ $tauxOccupation           = $tauxOccupation ?? 0;
 |--------------------------------------------------------------------------
 | Sécurisation du taux d'occupation
 |--------------------------------------------------------------------------
+| On garde une valeur propre pour l'affichage de la barre de progression.
+| Cela reste une préparation légère de la donnée pour la vue.
+|--------------------------------------------------------------------------
 */
 $tauxOccupation = (int) $tauxOccupation;
 
@@ -59,6 +73,9 @@ if ($tauxOccupation > 100) {
 /*
 |--------------------------------------------------------------------------
 | Tri simple des consultations par priorité décroissante
+|--------------------------------------------------------------------------
+| La vue doit rester lisible.
+| Aucun style ni logique métier complexe n'est ajouté ici.
 |--------------------------------------------------------------------------
 */
 if (!empty($consultations)) {
@@ -79,12 +96,14 @@ if (!empty($consultations)) {
         <div class="doctor-search-bar">
             <form method="GET" action="index.php" class="doctor-search-form">
                 <input type="hidden" name="action" value="dossiers_list">
+
                 <input
                     type="text"
                     name="q"
                     class="doctor-search-input"
                     placeholder="Rechercher dossier"
                 >
+
                 <button type="submit" class="doctor-search-btn">Rechercher</button>
             </form>
         </div>
@@ -105,9 +124,9 @@ if (!empty($consultations)) {
                 <ul>
                     <?php foreach ($dossiersRecent as $d): ?>
                         <?php
-                        $idDossier = (int) ($d['idDossier'] ?? 0);
+                        $idDossier  = (int) ($d['idDossier'] ?? 0);
                         $nomComplet = trim((string) ($d['nomComplet'] ?? ''));
-                        $label = $nomComplet !== '' ? $nomComplet : 'Dossier #' . $idDossier;
+                        $label      = $nomComplet !== '' ? $nomComplet : 'Dossier #' . $idDossier;
                         ?>
                         <li>
                             <a href="index.php?action=dossier_detail_medecin&id=<?= $idDossier ?>">
@@ -131,7 +150,7 @@ if (!empty($consultations)) {
                 <div class="mockup-mini-table">
                     <?php foreach ($consultations as $c): ?>
                         <?php
-                        $nomPatient = trim((string) (($c['nom'] ?? '') . ' ' . ($c['prenom'] ?? '')));
+                        $nomPatient            = trim((string) (($c['nom'] ?? '') . ' ' . ($c['prenom'] ?? '')));
                         $idDossierConsultation = (int) ($c['idDossier'] ?? 0);
                         ?>
                         <div class="mockup-mini-row">
@@ -202,8 +221,12 @@ if (!empty($consultations)) {
         <!-- Taux d'occupation -->
         <div class="mockup-occupation">
             <div class="mockup-occupation-title">Taux d’occupation</div>
+
             <div class="mockup-progress">
-                <div class="mockup-progress-bar" style="width: <?= $tauxOccupation ?>%"></div>
+                <div
+                    class="mockup-progress-bar"
+                    style="width: <?= $tauxOccupation ?>%"
+                ></div>
             </div>
         </div>
 
@@ -212,15 +235,19 @@ if (!empty($consultations)) {
     <!-- Colonne droite -->
     <div>
 
-        <!-- Equipements -->
+        <!-- Équipements -->
         <div class="mockup-panel">
             <div class="mockup-panel-title">Équipement disponible</div>
 
             <?php if (!empty($equipementsStats)): ?>
                 <?php foreach ($equipementsStats as $row): ?>
                     <div class="mockup-mini-row">
-                        <span><?= htmlspecialchars((string) ($row['type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-                        <span><?= (int) ($row['disponibles'] ?? 0) ?>/<?= (int) ($row['total'] ?? 0) ?></span>
+                        <span>
+                            <?= htmlspecialchars((string) ($row['type'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        </span>
+                        <span>
+                            <?= (int) ($row['disponibles'] ?? 0) ?>/<?= (int) ($row['total'] ?? 0) ?>
+                        </span>
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
@@ -235,7 +262,9 @@ if (!empty($consultations)) {
             <?php if (!empty($alertes)): ?>
                 <?php foreach ($alertes as $a): ?>
                     <div class="mockup-alert-line">
-                        <span><?= htmlspecialchars((string) ($a['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span>
+                            <?= htmlspecialchars((string) ($a['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        </span>
                         <span class="mockup-badge">!</span>
                     </div>
                 <?php endforeach; ?>

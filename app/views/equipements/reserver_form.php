@@ -1,13 +1,39 @@
 <?php
+/*
+|--------------------------------------------------------------------------
+| Vue : réservation d’un équipement
+|--------------------------------------------------------------------------
+| Ce fichier appartient uniquement à la couche View du MVC.
+| Il doit rester simple, lisible et centré sur l’affichage.
+| Pas de logique métier ici.
+| Pas de CSS ici.
+| Uniquement affichage et structure claire.
+|--------------------------------------------------------------------------
+*/
+
 require_once APP_PATH . '/includes/header.php';
 require_once APP_PATH . '/includes/sidebar.php';
 
-/* Détection du rôle connecté */
+/*
+|--------------------------------------------------------------------------
+| Détection du rôle connecté
+|--------------------------------------------------------------------------
+| La vue adapte seulement les routes d’affichage selon le rôle courant.
+| On conserve ici une structure claire sans toucher à la logique métier.
+|--------------------------------------------------------------------------
+*/
 $role = $_SESSION['user']['role'] ?? '';
 $isInfirmier = ($role === 'INFIRMIER');
 
-/* Détermination des actions selon le rôle */
-$listAction = $isInfirmier ? 'equipements_list_infirmier' : 'equipements_list_medecin';
+/*
+|--------------------------------------------------------------------------
+| Détermination des actions selon le rôle
+|--------------------------------------------------------------------------
+| Cette préparation sert uniquement à construire les liens et formulaires
+| affichés dans la vue.
+|--------------------------------------------------------------------------
+*/
+$listAction    = $isInfirmier ? 'equipements_list_infirmier' : 'equipements_list_medecin';
 $reserveAction = $isInfirmier ? 'equipement_reserver_infirmier' : 'equipement_reserver';
 ?>
 
@@ -15,15 +41,33 @@ $reserveAction = $isInfirmier ? 'equipement_reserver_infirmier' : 'equipement_re
 
 <div class="card form">
 
-    <!-- Affichage du dossier lié à la réservation -->
-    <p><strong>Dossier concerné :</strong> #<?= (int)$idDossier ?></p>
+    <?php
+    /*
+    |--------------------------------------------------------------------------
+    | Affichage du dossier concerné
+    |--------------------------------------------------------------------------
+    | Ce bloc présente uniquement le contexte de réservation.
+    |--------------------------------------------------------------------------
+    */
+    ?>
+    <p>
+        <strong>Dossier concerné :</strong> #<?= (int) $idDossier ?>
+    </p>
 
     <div class="separator"></div>
 
-    <!-- Informations de l'équipement sélectionné -->
+    <?php
+    /*
+    |--------------------------------------------------------------------------
+    | Informations sur l’équipement sélectionné
+    |--------------------------------------------------------------------------
+    | La vue affiche les données reçues sans ajouter de traitement métier.
+    |--------------------------------------------------------------------------
+    */
+    ?>
     <p>
         <strong>Équipement sélectionné :</strong>
-        <?= htmlspecialchars($equipement['typeEquipement']) ?> - N° <?= (int)$equipement['numeroEquipement'] ?>
+        <?= htmlspecialchars($equipement['typeEquipement']) ?> - N° <?= (int) $equipement['numeroEquipement'] ?>
         <?php if (!empty($equipement['localisation'])): ?>
             (<?= htmlspecialchars($equipement['localisation']) ?>)
         <?php endif; ?>
@@ -31,48 +75,59 @@ $reserveAction = $isInfirmier ? 'equipement_reserver_infirmier' : 'equipement_re
 
     <div class="separator"></div>
 
+    <?php
+    /*
+    |--------------------------------------------------------------------------
+    | Affichage conditionnel selon la disponibilité
+    |--------------------------------------------------------------------------
+    | La vue se limite à afficher soit un message d’indisponibilité,
+    | soit le formulaire de confirmation.
+    |--------------------------------------------------------------------------
+    */
+    ?>
     <?php if ($equipement['etatEquipement'] !== 'disponible'): ?>
 
-        <!-- Message si l'équipement n'est pas disponible -->
         <div class="alert alert-warning">
             Cet équipement n'est pas disponible. Impossible de le réserver.
         </div>
 
         <div class="form-actions">
-
-            <!-- Retour vers la liste des équipements selon le rôle -->
-            <a class="btn" href="index.php?action=<?= $listAction ?>&idDossier=<?= (int)$idDossier ?>">
+            <a class="btn" href="index.php?action=<?= $listAction ?>&idDossier=<?= (int) $idDossier ?>">
                 ← Retour
             </a>
 
-            <!-- Possibilité de signaler une panne -->
-            <a class="btn btn-primary" href="index.php?action=equipement_signaler_panne&id=<?= (int)$equipement['idEquipement'] ?>">
+            <a
+                class="btn btn-primary"
+                href="index.php?action=equipement_signaler_panne&id=<?= (int) $equipement['idEquipement'] ?>"
+            >
                 Signaler en panne
             </a>
-
         </div>
 
     <?php else: ?>
 
-        <!-- Formulaire de réservation de l'équipement -->
         <form method="post" action="index.php?action=<?= $reserveAction ?>">
-
-            <!-- Transmission des identifiants nécessaires -->
-            <input type="hidden" name="idEquipement" value="<?= (int)$equipement['idEquipement'] ?>">
-            <input type="hidden" name="idDossier" value="<?= (int)$idDossier ?>">
+            <?php
+            /*
+            |--------------------------------------------------------------------------
+            | Identifiants transmis par le formulaire
+            |--------------------------------------------------------------------------
+            | On garde ici uniquement les champs nécessaires à l’action
+            | sans alourdir la vue.
+            |--------------------------------------------------------------------------
+            */
+            ?>
+            <input type="hidden" name="idEquipement" value="<?= (int) $equipement['idEquipement'] ?>">
+            <input type="hidden" name="idDossier" value="<?= (int) $idDossier ?>">
 
             <div class="form-actions">
-
-                <!-- Retour vers la liste -->
-                <a class="btn" href="index.php?action=<?= $listAction ?>&idDossier=<?= (int)$idDossier ?>">
+                <a class="btn" href="index.php?action=<?= $listAction ?>&idDossier=<?= (int) $idDossier ?>">
                     ← Retour
                 </a>
 
-                <!-- Confirmation de la réservation -->
                 <button class="btn btn-primary" type="submit">
                     Confirmer la réservation
                 </button>
-
             </div>
         </form>
 

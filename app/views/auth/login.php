@@ -1,3 +1,23 @@
+<?php
+/*
+==================================================
+ VUE : Page de connexion
+==================================================
+ Rôle :
+ - Afficher le formulaire de connexion utilisateur
+ - Afficher les messages d'erreur (session ou simple)
+
+ Remarques d'organisation :
+ - Ce fichier appartient uniquement à la couche View (MVC)
+ - Ce fichier doit rester simple et lisible
+ - Pas de logique métier ici
+ - Pas de traitement de données ici
+ - Pas de CSS ici (uniquement liaison du fichier existant)
+ - Uniquement affichage et structure HTML claire
+==================================================
+*/
+?>
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -20,7 +40,7 @@
             <div class="login-brand">
 
                 <!-- Logo du système -->
-                <img src="assets/logo.png" alt="Logo HRMS" class="login-logo">
+                <img src="assets/images/logo.png" alt="Logo HRMS" class="login-logo">
 
                 <!-- Nom du système -->
                 <span>HRMS – Connexion au système</span>
