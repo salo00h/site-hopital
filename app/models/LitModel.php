@@ -242,7 +242,7 @@ function reserveLitForDossier(
         }
 
         if (($row['etatLit'] ?? '') !== 'disponible') {
-            throw new Exception(\"Ce lit n'est pas disponible.\");
+            throw new Exception("Ce lit n'est pas disponible.");
         }
 
         // 2) Vérifier que le dossier n'a pas déjà un lit
