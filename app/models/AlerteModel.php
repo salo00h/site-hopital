@@ -2,25 +2,34 @@
 declare(strict_types=1);
 
 /*
-==================================================
- MODEL : AlerteModel (PDO / MySQL)
-==================================================
- Rôle :
- - Contenir uniquement les requêtes SQL liées aux alertes.
- - Fournir les alertes pour le dashboard.
- - Utiliser PDO avec requêtes préparées.
- - Respecter les noms réels des tables en lowercase.
-==================================================
+|--------------------------------------------------------------------------
+| MODEL : AlerteModel (PDO / MySQL)
+|--------------------------------------------------------------------------
+| Rôle :
+| - Gérer uniquement les requêtes SQL liées aux alertes
+| - Fournir les données nécessaires au dashboard
+| - Ne contenir aucune logique métier ni affichage
+| - Utiliser exclusivement les noms réels des tables en lowercase
+|--------------------------------------------------------------------------
 */
 
 require_once APP_PATH . '/config/database.php';
 
+/* =========================================================================
+ * LECTURE DES ALERTES
+ * ========================================================================= */
+
 /**
  * Retourne les dernières alertes.
  *
- * Remarque :
- * - Le texte est stocké dans la colonne description.
- * - On renvoie un alias "message" pour rester compatible avec la vue.
+ * Particularités :
+ * - la colonne description est renommée en "message"
+ *   pour rester compatible avec les vues
+ * - la colonne action est également retournée
+ * - la colonne statutAlerte est conservée si elle est utilisée ailleurs
+ *
+ * Tri :
+ * - alertes les plus récentes en premier
  */
 function alertes_get_last(int $limit = 5): array
 {
@@ -29,10 +38,11 @@ function alertes_get_last(int $limit = 5): array
     $sql = "
         SELECT
             a.idAlerte,
-            a.dateCreation,
             a.typeAlerte,
+            a.description AS message,
+            a.action,
             a.statutAlerte,
-            a.description AS message
+            a.dateCreation
         FROM alerte a
         ORDER BY a.dateCreation DESC, a.idAlerte DESC
         LIMIT :lim
@@ -65,15 +75,23 @@ function alertes_count_all(): int
     return (int) ($row['nb'] ?? 0);
 }
 
+/* =========================================================================
+ * CRÉATION DES ALERTES
+ * ========================================================================= */
+
 /**
  * Crée une nouvelle alerte.
  *
- * Types possibles selon le projet :
+ * Types possibles :
  * - saturation
  * - panne_Lit
  * - panne_Equipement
  * - Action
  * - demande_transfert
+ *
+ * Remarques :
+ * - action peut être null si aucune action spécifique n'est requise
+ * - statut initial = 'nonLu'
  */
 function alerte_create(string $type, string $description, ?string $action = null): bool
 {
