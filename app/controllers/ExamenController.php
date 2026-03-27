@@ -169,7 +169,7 @@ function examen_create_action(): void
     |--------------------------------------------------------------------------
     */
     $idMedecin = fetchIntOrNull(
-        "SELECT idMedecin FROM MEDECIN WHERE idPersonnel = ? LIMIT 1",
+        "SELECT idMedecin FROM medecin WHERE idPersonnel = ? LIMIT 1",
         [$idPersonnel],
         'idMedecin'
     );
