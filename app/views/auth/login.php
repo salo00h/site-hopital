@@ -40,7 +40,7 @@
             <div class="login-brand">
 
                 <!-- Logo du système -->
-                <img src="assets/images/logo.png" alt="Logo HRMS" class="login-logo">
+                <img src="assets/logo.png" alt="Logo HRMS" class="login-logo">
 
                 <!-- Nom du système -->
                 <span>HRMS – Connexion au système</span>
