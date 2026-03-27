@@ -2,17 +2,22 @@
 declare(strict_types=1);
 
 /*
-  ==============================
-  PATIENT MODEL (PDO / MySQL)
-  ==============================
-  Rôle :
-  - Contenir uniquement les requêtes SQL liées aux patients.
-  - Le contrôleur appelle ces fonctions.
-  - Utilisation de PDO avec requêtes préparées.
-  - Respect des noms réels des tables en lowercase.
+|--------------------------------------------------------------------------
+| PATIENT MODEL (PDO / MySQL)
+|--------------------------------------------------------------------------
+| Rôle :
+| - Contenir uniquement les requêtes SQL liées aux patients
+| - Recevoir les données envoyées par le contrôleur
+| - Utiliser PDO et les requêtes préparées
+| - Respecter les noms réels des tables en lowercase
+|--------------------------------------------------------------------------
 */
 
 require_once __DIR__ . '/../config/database.php';
+
+/* =========================================================================
+ * OUTIL COMMUN
+ * ========================================================================= */
 
 /**
  * Transforme une valeur vide en NULL.
@@ -31,14 +36,22 @@ function patientToNull(mixed $value): mixed
     return $value;
 }
 
+/* =========================================================================
+ * CRÉATION DU PATIENT
+ * ========================================================================= */
+
 /**
  * Crée un patient et retourne son identifiant.
- * La date de naissance est obligatoire.
+ *
+ * Remarques :
+ * - dateNaissance est obligatoire au format YYYY-MM-DD
+ * - les champs optionnels vides sont enregistrés à NULL
  */
 function createPatient(array $data): int
 {
     $sql = "
-        INSERT INTO patient (
+        INSERT INTO patient
+        (
             nom,
             prenom,
             dateNaissance,
@@ -48,7 +61,9 @@ function createPatient(array $data): int
             genre,
             numeroCarteVitale,
             mutuelle
-        ) VALUES (
+        )
+        VALUES
+        (
             :nom,
             :prenom,
             :dateNaissance,
@@ -63,35 +78,44 @@ function createPatient(array $data): int
 
     $stmt = db()->prepare($sql);
     $stmt->execute([
-        ':nom' => trim((string)($data['nom'] ?? '')),
-        ':prenom' => trim((string)($data['prenom'] ?? '')),
-        ':dateNaissance' => trim((string)($data['dateNaissance'] ?? '')),
-        ':adresse' => patientToNull($data['adresse'] ?? null),
-        ':telephone' => patientToNull($data['telephone'] ?? null),
-        ':email' => patientToNull($data['email'] ?? null),
-        ':genre' => trim((string)($data['genre'] ?? 'Homme')),
+        ':nom'               => trim((string) ($data['nom'] ?? '')),
+        ':prenom'            => trim((string) ($data['prenom'] ?? '')),
+        ':dateNaissance'     => trim((string) ($data['dateNaissance'] ?? '')),
+        ':adresse'           => patientToNull($data['adresse'] ?? null),
+        ':telephone'         => patientToNull($data['telephone'] ?? null),
+        ':email'             => patientToNull($data['email'] ?? null),
+        ':genre'             => trim((string) ($data['genre'] ?? 'Homme')),
         ':numeroCarteVitale' => patientToNull($data['numeroCarteVitale'] ?? null),
-        ':mutuelle' => patientToNull($data['mutuelle'] ?? null),
+        ':mutuelle'          => patientToNull($data['mutuelle'] ?? null),
     ]);
 
     return (int) db()->lastInsertId();
 }
 
+/* =========================================================================
+ * MISE À JOUR DU PATIENT
+ * ========================================================================= */
+
 /**
  * Met à jour un patient existant.
- * Les champs optionnels vides sont enregistrés en NULL.
+ *
+ * Règles :
+ * - idPatient doit être valide
+ * - nom, prénom et dateNaissance sont obligatoires
+ * - si genre est vide, la valeur "Homme" est utilisée
+ * - les champs optionnels vides sont convertis en NULL
  */
 function updatePatient(
-    $idPatient,
-    $nom,
-    $prenom,
-    $dateNaissance,
-    $adresse,
-    $telephone,
-    $email,
-    $genre,
-    $numeroCarteVitale,
-    $mutuelle
+    mixed $idPatient,
+    mixed $nom,
+    mixed $prenom,
+    mixed $dateNaissance,
+    mixed $adresse,
+    mixed $telephone,
+    mixed $email,
+    mixed $genre,
+    mixed $numeroCarteVitale,
+    mixed $mutuelle
 ): void {
     $idPatient = (int) $idPatient;
 
@@ -129,15 +153,15 @@ function updatePatient(
 
     $stmt = db()->prepare($sql);
     $stmt->execute([
-        ':nom' => $nom,
-        ':prenom' => $prenom,
-        ':dateNaissance' => $dateNaissance,
-        ':adresse' => patientToNull($adresse),
-        ':telephone' => patientToNull($telephone),
-        ':email' => patientToNull($email),
-        ':genre' => $genre,
+        ':nom'               => $nom,
+        ':prenom'            => $prenom,
+        ':dateNaissance'     => $dateNaissance,
+        ':adresse'           => patientToNull($adresse),
+        ':telephone'         => patientToNull($telephone),
+        ':email'             => patientToNull($email),
+        ':genre'             => $genre,
         ':numeroCarteVitale' => patientToNull($numeroCarteVitale),
-        ':mutuelle' => patientToNull($mutuelle),
-        ':idPatient' => $idPatient,
+        ':mutuelle'          => patientToNull($mutuelle),
+        ':idPatient'         => $idPatient,
     ]);
 }
