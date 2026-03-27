@@ -945,3 +945,42 @@ body{
   font-weight: 800;
 }
 
+/* =========================
+   TRANSFERTS / TABLEAUX TECH
+   ========================= */
+
+.tech-board{
+  width: 100%;
+}
+
+.tech-table-card{
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.tech-table{
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.tech-table th,
+.tech-table td{
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.tech-table th{
+  background: #f2f6fb;
+  font-weight: 800;
+}
+
+.tech-table tbody tr:nth-child(even){
+  background: #fafcff;
+}
